@@ -1,0 +1,21 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: csi-fcfs-sc
+provisioner: fcfs.csi.vazmin.github.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+parameters:
+
+  # The secrets have to contain admin credentials.
+  csi.storage.k8s.io/provisioner-secret-name: csi-fcfs-secret
+  csi.storage.k8s.io/provisioner-secret-namespace: default
+  csi.storage.k8s.io/controller-expand-secret-name: csi-fcfs-secret
+  csi.storage.k8s.io/controller-expand-secret-namespace: default
+  csi.storage.k8s.io/node-stage-secret-name: csi-fcfs-secret
+  csi.storage.k8s.io/node-stage-secret-namespace: default
+  csi.storage.k8s.io/node-publish-secret-name: csi-fcfs-secret
+  csi.storage.k8s.io/node-publish-secret-namespace: default
+
+  clusterID: myClusterID

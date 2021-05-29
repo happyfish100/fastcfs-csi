@@ -1,0 +1,145 @@
+# Service defined here, plus serviceName below in StatefulSet,
+# are needed only because of condition explained in
+# https://github.com/kubernetes/kubernetes/issues/69608
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: csi-fcfsplugin
+  labels:
+    app: csi-fcfsplugin
+spec:
+  selector:
+    app: csi-fcfsplugin
+  ports:
+    - name: dummy
+      port: 12345
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: csi-fcfsplugin
+spec:
+  serviceName: "csi-fcfsplugin"
+  # One replica only:
+  # Host path driver only works when everything runs
+  # on a single node. We achieve that by starting it once and then
+  # co-locate all other pods via inter-pod affinity
+  replicas: 1
+  selector:
+    matchLabels:
+      app: csi-fcfsplugin
+  template:
+    metadata:
+      labels:
+        app: csi-fcfsplugin
+    spec:
+      serviceAccount: csi-external-health-monitor-controller
+      containers:
+        - name: node-driver-registrar
+          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
+          args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/csi-fcfs/csi.sock
+          securityContext:
+            # This is necessary only for systems with SELinux, where
+            # non-privileged sidecar containers cannot access unix domain socket
+            # created by privileged CSI driver container.
+            privileged: true
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /registration
+              name: registration-dir
+
+        - name: fcfs
+          image: vazmin/fcfs-csi:v0.1.0
+#          imagePullPolicy: "Never"
+          imagePullPolicy: "IfNotPresent"
+          args:
+            - "--drivername=fcfs.csi.vazmin.github.io"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(KUBE_NODE_NAME)"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          securityContext:
+            privileged: true
+            capabilities:
+              add: [ "SYS_ADMIN" ]
+          ports:
+            - containerPort: 9898
+              name: healthz
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 2
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /var/lib/kubelet/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: /dev
+              name: dev-dir
+            - mountPath: /etc/fcfs-csi-config/
+              name: fcfs-csi-config
+            - mountPath: /tmp/csi/keys
+              name: keys-tmp-dir
+        - name: liveness-probe
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+          image: k8s.gcr.io/sig-storage/livenessprobe:v2.2.0
+          args:
+            - --csi-address=/csi/csi.sock
+            - --health-port=9898
+
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/csi-fcfs
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins
+            type: Directory
+          name: plugins-dir
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: dev-dir
+        - name: fcfs-csi-config
+          configMap:
+            name: fcfs-csi-config
+        - name: keys-tmp-dir
+          emptyDir: {
+            medium: "Memory"
+          }

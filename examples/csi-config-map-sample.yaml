@@ -1,0 +1,15 @@
+---
+# This is a sample configmap that helps define a FastCFS cluster configuration
+# as required by the CSI plugins.
+apiVersion: v1
+kind: ConfigMap
+data:
+  config.json: |-
+    [
+      {
+        "clusterID": "myClusterID",
+        "configURL": "http://192.168.99.181:8080"
+      }
+    ]
+metadata:
+  name: fcfs-csi-config
