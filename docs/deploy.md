@@ -125,6 +125,82 @@ Events:
   Normal  Started                 13s   kubelet                  Started container my-frontend
 ```
 
+Let's validate the components are deployed:
+```shell
+$ kubectl get pv
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                  STORAGECLASS   REASON   AGE
+pvc-007e7d7e-4586-4c52-a7b5-a54694aee194   1Gi        RWX            Delete           Bound    default/csi-fcfs-pvc   csi-fcfs-sc             13s
+```
+
+```shell
+$ kubectl get pvc
+NAME           STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+csi-fcfs-pvc   Bound    pvc-007e7d7e-4586-4c52-a7b5-a54694aee194   1Gi        RWX            csi-fcfs-sc    9s
+```
+
+Finally, inspect the application pod `my-csi-app`  which mounts a FastCFS volume:
+
+```shell
+$ kubectl describe po my-csi-app
+Name:         my-csi-app
+Namespace:    default
+Priority:     0
+Node:         kind-control-plane/172.18.0.2
+Start Time:   Sun, 30 May 2021 22:47:21 +0800
+Labels:       <none>
+Annotations:  <none>
+Status:       Running
+IP:           10.244.0.18
+IPs:
+  IP:  10.244.0.18
+Containers:
+  my-frontend:
+    Container ID:  containerd://74bf6c52cf48485aa781ef418072c387fe978e771dbc822e3e9d6b2fa5df2f9e
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:b5fc1d7b2e4ea86a06b0cf88de915a2c43a99a00b6b3c0af731e5f4c07ae8eff
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      sleep
+      1000000
+    State:          Running
+      Started:      Sun, 30 May 2021 22:47:41 +0800
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /data from my-csi-volume (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-8ld8w (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  my-csi-volume:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  csi-fcfs-pvc
+    ReadOnly:   false
+  default-token-8ld8w:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-8ld8w
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason                  Age   From                     Message
+  ----    ------                  ----  ----                     -------
+  Normal  Scheduled               33s   default-scheduler        Successfully assigned default/my-csi-app to kind-control-plane
+  Normal  SuccessfulAttachVolume  33s   attachdetach-controller  AttachVolume.Attach succeeded for volume "pvc-007e7d7e-4586-4c52-a7b5-a54694aee194"
+  Normal  Pulling                 17s   kubelet                  Pulling image "busybox"
+  Normal  Pulled                  14s   kubelet                  Successfully pulled image "busybox" in 3.078241754s
+  Normal  Created                 13s   kubelet                  Created container my-frontend
+  Normal  Started                 13s   kubelet                  Started container my-frontend
+```
+
 ## Confirm FastCFS driver works
 
 A file written in a properly mounted fastcfs volume inside an application should show up inside the FastCFS container.
