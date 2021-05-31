@@ -23,9 +23,9 @@ package fcfs
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	csicommon "github.com/happyfish100/fastcfs-csi/pkg/csi-common"
 	"golang.org/x/net/context"
 	glog "k8s.io/klog/v2"
+	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
 )
 
 // identityServer struct of curve CSI driver with supported methods of CSI

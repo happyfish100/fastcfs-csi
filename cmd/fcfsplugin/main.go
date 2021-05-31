@@ -22,8 +22,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/happyfish100/fastcfs-csi/pkg/common"
-	fcfs "github.com/happyfish100/fastcfs-csi/pkg/fcfs-driver"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
+	fcfs "vazmin.github.io/fastcfs-csi/pkg/fcfs-driver"
 )
 
 func init() {
@@ -45,6 +45,10 @@ func init() {
 
 	flag.BoolVar(&conf.IsNodeServer, "node-server", false, "start fastcfs-csi node server")
 	flag.BoolVar(&conf.IsControllerServer, "controller-server", false, "start fastcfs-csi controller server")
+
+	flag.StringVar(&conf.FcfsFusedProxyEndpoint, "fcfsfused-proxy-endpoint", "unix://tmp/fcfsfused-proxy.sock", "fcfsfused-proxy endpoint")
+	flag.BoolVar(&conf.EnableFcfsFusedProxy, "enable-fcfsfused-proxy", true, "enable fcfsfused-proxy")
+	flag.IntVar(&conf.FcfsFusedProxyConnTimout, "fcfsfused-proxy-conn-timeout", 5, "fcfsfused proxy connection timeout(seconds)")
 }
 
 func main() {

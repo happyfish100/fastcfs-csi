@@ -88,3 +88,13 @@ func RoundOffBytes(bytes int64) int64 {
 	}
 	return num
 }
+
+func MakeDir(pathname string) error {
+	err := os.MkdirAll(pathname, os.FileMode(0755))
+	if err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
+	return nil
+}

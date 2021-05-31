@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = ".;pb";
+
+extend google.protobuf.FieldOptions {
+	// Indicates that a field MAY contain information that is sensitive
+	// and MUST be treated as such (e.g. not logged).
+	bool csi_secret = 1059;
+}
+
+message MountFcfsFusedRequest {
+	string mountArgs = 1;
+	// Secrets required by plugin to complete volume creation request.
+	// This field is OPTIONAL. Refer to the `Secrets Requirements`
+	// section on how to use this field.
+	map<string, string> secrets = 5 [(csi_secret) = true];
+}
+
+message MountFcfsFusedResponse {
+	string output = 1;
+}
+
+service MountService {
+	rpc MountFcfsFused(MountFcfsFusedRequest) returns (MountFcfsFusedResponse) {};
+}
