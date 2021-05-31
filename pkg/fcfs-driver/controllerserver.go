@@ -18,12 +18,12 @@ package fcfs
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/happyfish100/fastcfs-csi/pkg/common"
-	csicommon "github.com/happyfish100/fastcfs-csi/pkg/csi-common"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	glog "k8s.io/klog/v2"
+	"k8s.io/klog/v2"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
+	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
 )
 
 type controllerServer struct {
@@ -34,7 +34,7 @@ type controllerServer struct {
 // CreateVolume create volume
 func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (resp *csi.CreateVolumeResponse, finalErr error) {
 	if err := cs.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
-		glog.V(3).Infof("invalid create FcfsVolume req: %v", req)
+		klog.V(3).Infof("invalid create FcfsVolume req: %v", req)
 		return nil, err
 	}
 
@@ -42,7 +42,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	cr, err := common.NewAdminCredentials(req.GetSecrets())
 	if err != nil {
-		glog.Errorf("failed to retrieve admin credentials: %v", err)
+		klog.Errorf("failed to retrieve admin credentials: %v", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	defer cr.DeleteCredentials()
@@ -64,7 +64,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	// Existence and conflict checks
 	if acquired := cs.volumeLocks.TryAcquire(requestName); !acquired {
-		glog.Errorf(common.VolumeOperationAlreadyExistsFmt, requestName)
+		klog.Errorf(common.VolumeOperationAlreadyExistsFmt, requestName)
 		return nil, status.Errorf(codes.Aborted, common.VolumeOperationAlreadyExistsFmt, requestName)
 	}
 	defer cs.volumeLocks.Release(requestName)
@@ -74,7 +74,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	//}}
 	vol, err := newFcfsVolume(ctx, req, requestName, cr)
 	if err != nil {
-		glog.Errorf("validation and extraction of FcfsVolume options failed: %v", err)
+		klog.Errorf("validation and extraction of FcfsVolume options failed: %v", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -88,7 +88,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to create FcfsVolume %v: %w", vol.VolID, err)
 		}
-		glog.V(4).Infof("created FcfsVolume %s at path %s", vol.VolID, vol.VolPath)
+		klog.V(4).Infof("created FcfsVolume %s at path %s", vol.VolID, vol.VolPath)
 	}
 
 	// TODO VolumeContentSource
@@ -111,13 +111,13 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	}
 
 	if err := cs.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
-		glog.V(3).Infof("invalid delete FcfsVolume req: %v", req)
+		klog.V(3).Infof("invalid delete FcfsVolume req: %v", req)
 		return nil, err
 	}
 
 	cr, err := common.NewAdminCredentials(req.GetSecrets())
 	if err != nil {
-		glog.Errorf("failed to retrieve admin credentials: %v", err)
+		klog.Errorf("failed to retrieve admin credentials: %v", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	defer cr.DeleteCredentials()
@@ -125,7 +125,7 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	volID := req.GetVolumeId()
 
 	if acquired := cs.volumeLocks.TryAcquire(volID); !acquired {
-		glog.Errorf(common.VolumeOperationAlreadyExistsFmt, volID)
+		klog.Errorf(common.VolumeOperationAlreadyExistsFmt, volID)
 		return nil, status.Errorf(codes.Aborted, common.VolumeOperationAlreadyExistsFmt, volID)
 	}
 	defer cs.volumeLocks.Release(volID)
@@ -137,7 +137,7 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	if err := deleteVolume(ctx, vol, cr); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete FcfsVolume %v: %w", volID, err)
 	}
-	glog.V(4).Infof("FcfsVolume %v successfully deleted", volID)
+	klog.V(4).Infof("FcfsVolume %v successfully deleted", volID)
 
 	return &csi.DeleteVolumeResponse{}, nil
 }
@@ -196,14 +196,14 @@ func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 	}
 
 	if acquired := cs.volumeLocks.TryAcquire(volumeId); !acquired {
-		glog.Errorf(common.VolumeOperationAlreadyExistsFmt, volumeId)
+		klog.Errorf(common.VolumeOperationAlreadyExistsFmt, volumeId)
 		return nil, status.Errorf(codes.Aborted, common.VolumeOperationAlreadyExistsFmt, volumeId)
 	}
 	defer cs.volumeLocks.Release(volumeId)
 
 	cr, err := common.NewAdminCredentials(secrets)
 	if err != nil {
-		glog.Errorf("failed to retrieve admin credentials: %v", err)
+		klog.Errorf("failed to retrieve admin credentials: %v", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	defer cr.DeleteCredentials()
@@ -212,12 +212,12 @@ func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 
 	vol, err := newFcfsVolumeFromVolID(volumeId, req.GetCapacityRange())
 	if err != nil {
-		glog.Errorf("failed to new volume %s: %v", volumeId, err)
+		klog.Errorf("failed to new volume %s: %v", volumeId, err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	if err = resizeVolume(ctx, vol, cr); err != nil {
-		glog.Errorf("failed to expand volume %s: %v", volumeId, err)
+		klog.Errorf("failed to expand volume %s: %v", volumeId, err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 

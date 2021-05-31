@@ -34,14 +34,16 @@ spec:
       labels:
         app: csi-fcfsplugin
     spec:
-      serviceAccount: csi-external-health-monitor-controller
+      serviceAccount: fastcfs-csi-nodeplugin
+      priorityClassName: system-node-critical
+      hostNetwork: true
       containers:
         - name: node-driver-registrar
           image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
           args:
             - --v=5
             - --csi-address=/csi/csi.sock
-            - --kubelet-registration-path=/var/lib/kubelet/plugins/csi-fcfs/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io/csi.sock
           securityContext:
             # This is necessary only for systems with SELinux, where
             # non-privileged sidecar containers cannot access unix domain socket
@@ -70,6 +72,8 @@ spec:
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+            - name: FCFSFUSED_PROXY_ENDPOINT
+              value: unix:///csi/fcfsfused-proxy.sock
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -117,7 +121,7 @@ spec:
 
       volumes:
         - hostPath:
-            path: /var/lib/kubelet/plugins/csi-fcfs
+            path: /var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:

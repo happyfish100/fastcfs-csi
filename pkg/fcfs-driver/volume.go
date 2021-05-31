@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/happyfish100/fastcfs-csi/pkg/common"
 	"k8s.io/klog/v2"
 	"math"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
 )
 
 // createVolume
@@ -122,8 +122,6 @@ func newFcfsVolumeFromVolID(volID string, cr *csi.CapacityRange) (*FcfsVolume, e
 }
 
 func createVolume(ctx context.Context, volume *FcfsVolume, credentials *common.Credentials) error {
-
-	//os.MkdirAll("/opt/fastcfs/auth", os.ModePerm) // TODO: delete
 
 	args := []string{
 		"-u", credentials.UserName,
