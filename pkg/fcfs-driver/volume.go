@@ -101,7 +101,9 @@ func newFcfsVolume(ctx context.Context, req *csi.CreateVolumeRequest, requestNam
 
 func newFcfsVolumeFromVolID(volID string, cr *csi.CapacityRange) (*FcfsVolume, error) {
 	cid := &common.CSIIdentifier{}
-	cid.DecomposeCSIID(volID)
+	if err := cid.DecomposeCSIID(volID); err != nil {
+		return nil, err
+	}
 
 	url, err := common.ConfigURL(common.CsiConfigFile, cid.ClusterID)
 	if err != nil {

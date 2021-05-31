@@ -11,7 +11,6 @@ import (
 
 func fuseMount(ctx context.Context, volume *FcfsVolume, cr *common.Credentials) error {
 	klog.V(5).Infof("fuse client mount volume %s", volume.VolID)
-	// os.MkdirAll("/opt/fastcfs/auth", os.ModePerm) // TODO: delete
 	if err := common.CreateDirIfNotExists(volume.VolPath); err != nil {
 		return err
 	}
@@ -20,7 +19,7 @@ func fuseMount(ctx context.Context, volume *FcfsVolume, cr *common.Credentials) 
 	if err := common.CreateDirIfNotExists(basePath); err != nil {
 		return err
 	}
-	//configFile, err := common.ConfigFile(common.CsiConfigFile, "1")
+
 	args := []string{
 		"-u", cr.UserName,
 		"-k", cr.KeyFile,

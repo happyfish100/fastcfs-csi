@@ -75,6 +75,9 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 	}
 
 	vol, err := newFcfsVolumeFromVolID(volumeId, nil)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "new FcfsVolume err %v", err)
+	}
 	vol.VolPath = stagingTargetPath
 	err = fuseMount(ctx, vol, cr)
 	if err != nil {
@@ -110,7 +113,9 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	}
 
 	vol, err := newFcfsVolumeFromVolID(volumeID, nil)
-
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint %s on volumeID(%s)", targetPath, volumeID)
 	err = fuseUnmount(ctx, vol)
 	if err != nil {
@@ -150,8 +155,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, status.Errorf(codes.Aborted, common.VolumeOperationAlreadyExistsFmt, volumeId)
 	}
 	defer ns.volumeLocks.Release(volumeId)
-	mountOptions := []string{"bind", "_netdev"}
-	mountOptions = common.ConstructMountOptions(mountOptions, req.GetVolumeCapability())
+
 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -167,6 +171,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
+	mountOptions := []string{"bind", "_netdev"}
+	mountOptions = common.ConstructMountOptions(mountOptions, req.GetVolumeCapability())
+	if req.GetReadonly() {
+		mountOptions = append(mountOptions, "ro")
+	}
 	err = bindMount(ctx, req.GetStagingTargetPath(), req.GetTargetPath(), mountOptions)
 
 	if err != nil {
@@ -286,27 +295,6 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context, request *csi.NodeExp
 	return nil, status.Error(codes.Unimplemented, "NodeExpandVolume")
 }
 
-//func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, request *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-//
-//	return &csi.NodeGetCapabilitiesResponse{
-//		Capabilities: []*csi.NodeServiceCapability{
-//			{
-//				Type: &csi.NodeServiceCapability_Rpc{
-//					Rpc: &csi.NodeServiceCapability_RPC{
-//						Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
-//					},
-//				},
-//			},
-//			{
-//				Type: &csi.NodeServiceCapability_Rpc{
-//					Rpc: &csi.NodeServiceCapability_RPC{
-//						Type: csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
-//					},
-//				},
-//			},
-//		},
-//	}, nil
-//}
 
 func (ns *nodeServer) NodeGetInfo(ctx context.Context, request *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	return &csi.NodeGetInfoResponse{
