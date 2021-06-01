@@ -11,7 +11,7 @@ all: build
 BIN_OUTPUT=bin
 FCFS_CSI_VERSION=$(shell . $(CURDIR)/build.env ; echo $${FCFS_CSI_VERSION})
 
-CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),hub.docker.com/r/vazmin/fcfs-csi)
+CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),vazmin/fcfs-csi)
 CSI_IMAGE_VERSION=$(shell . $(CURDIR)/build.env ; echo $${CSI_IMAGE_VERSION})
 CSI_IMAGE=$(CSI_IMAGE_NAME):$(CSI_IMAGE_VERSION)
 
@@ -83,7 +83,7 @@ fcfsfused-proxy:
 
 .PHONY: fcfsfused-proxy-container
 fcfsfused-proxy-container:
-	sudo docker build -t fcfsfused-proxy -f pkg/fcfsfused-proxy/Dockerfile .
+	docker build -t fcfsfused-proxy -f pkg/fcfsfused-proxy/Dockerfile .
 
 .PHONY: install-fcfsfused-proxy
 install-fcfsfused-proxy:

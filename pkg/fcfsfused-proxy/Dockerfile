@@ -19,7 +19,7 @@ ADD . .
 RUN GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build -mod vendor -o _output/fcfsfused-proxy ./pkg/fcfsfused-proxy
 
 FROM centos:centos8
-COPY --from=builder /go/src/sigs.k8s.io/blob-csi-driver/_output/fcfsfused-proxy /fcfsfused-proxy
+COPY --from=builder /go/src/vazmin.github.io/fastcfs-csi/_output/fcfsfused-proxy /fcfsfused-proxy
 
 RUN rpm -ivh http://www.fastken.com/yumrepo/el8/x86_64/FastOSrepo-1.0.0-1.el8.x86_64.rpm \
  && yum remove fuse -y \

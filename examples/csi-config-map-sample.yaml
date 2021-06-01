@@ -8,7 +8,7 @@ data:
     [
       {
         "clusterID": "myClusterID",
-        "configURL": "http://192.168.99.181:8080"
+        "configURL": "http://192.168.99.170:8080"
       }
     ]
 metadata:
