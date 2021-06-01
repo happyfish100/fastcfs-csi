@@ -31,6 +31,9 @@ spec:
       serviceAccount: fastcfs-csi-nodeplugin
       priorityClassName: system-node-critical
       hostNetwork: true
+      # to use e.g. Rook orchestrated cluster, and mons' FQDN is
+      # resolved through k8s service, set dns policy to cluster first
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: node-driver-registrar
           image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
@@ -54,15 +57,16 @@ spec:
               name: socket-dir
             - mountPath: /registration
               name: registration-dir
-
         - name: fcfs
-          image: vazmin/fcfs-csi:v0.1.0
+          image: vazmin/fcfs-csi:canary
 #          imagePullPolicy: "Never"
           imagePullPolicy: "IfNotPresent"
           args:
             - "--drivername=fcfs.csi.vazmin.github.io"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--fcfsfused-proxy-endpoint=$(FCFSFUSED_PROXY_ENDPOINT)"
+            - "--enable-fcfsfused-proxy=true"
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock

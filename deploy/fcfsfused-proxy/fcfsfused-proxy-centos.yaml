@@ -32,14 +32,14 @@ spec:
           - '--net'
           - '--pid'
           - '--'
-          - sh
+          - bash
           - '-c'
           - |
             set -xe
             rpm -ivh http://www.fastken.com/yumrepo/el8/x86_64/FastOSrepo-1.0.0-1.el8.x86_64.rpm
             yum install wget FastCFS-fused -y
             # download fcfs-fused-proxy .rpm package
-            wget https://github.com/happyfish100/fastcfs-csi/raw/master/deploy/fcfsfused-proxy/v0.1.0/fcfsfused-proxy-v0.1.0.rpm -O /tmp/fcfsfused-proxy-v0.1.0.rpm
+            wget https://raw.githubusercontent.com/vazmin/fastcfs-csi/fcfs-fused-proxy/deploy/fcfsfused-proxy/v0.1.0/fcfsfused-proxy-v0.1.0.rpm -O /tmp/fcfsfused-proxy-v0.1.0.rpm
             rpm -ivh /tmp/fcfsfused-proxy-v0.1.0.rpm
             mkdir -p /var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io
             echo "Enabling fcfsfused-proxy systemctl service"
