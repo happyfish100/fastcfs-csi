@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/klog/v2"
-	"math"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
 )
 
@@ -128,7 +127,7 @@ func createVolume(ctx context.Context, volume *FcfsVolume, credentials *common.C
 		"-k", credentials.KeyFile,
 		"-c", volume.getPoolConfigURL(),
 		"create", volume.VolName,
-		fmt.Sprintf("%dg", gibCeil(volume.Size)),
+		fmt.Sprintf("%dg", common.RoundUpGiB(volume.Size)),
 	}
 
 	output, err := common.ExecPoolCommand(ctx, args...)
@@ -161,7 +160,7 @@ func resizeVolume(ctx context.Context, volume *FcfsVolume, credentials *common.C
 		"-k", credentials.KeyFile,
 		"-c", volume.getPoolConfigURL(),
 		"quota", volume.VolName,
-		fmt.Sprintf("%dg", gibCeil(volume.Size)),
+		fmt.Sprintf("%dg", common.RoundUpGiB(volume.Size)),
 	}
 
 	output, err := common.ExecPoolCommand(ctx, args...)
@@ -173,10 +172,6 @@ func resizeVolume(ctx context.Context, volume *FcfsVolume, credentials *common.C
 
 	klog.V(4).Infof("[FastCFS] successfully resize FcfsVolume: %s", volume.VolID)
 	return err
-}
-
-func gibCeil(size int64) int64 {
-	return int64(math.Ceil(float64(size / common.GiB)))
 }
 
 func deleteVolume(ctx context.Context, vol *FcfsVolume, credentials *common.Credentials) error {

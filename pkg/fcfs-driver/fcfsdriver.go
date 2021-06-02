@@ -91,7 +91,11 @@ func (fc *fcfsDriver) Run(conf *common.Config) {
 			csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 		})
 	}
-	topology := map[string]string{TopologyKeyNode: conf.NodeID}
+	topology, err := common.GetTopologyFromDomainLabels(conf.DomainLabels, conf.NodeID, conf.DriverName)
+	if err != nil {
+		klog.Fatalln("Failed GetTopologyFromDomainLabels, %v", err)
+	}
+
 	both := !conf.IsControllerServer && !conf.IsNodeServer
 	fc.ids = NewIdentityServer(fc.driver)
 	if conf.IsControllerServer || both {

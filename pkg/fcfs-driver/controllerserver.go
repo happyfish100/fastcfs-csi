@@ -93,14 +93,23 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	// TODO VolumeContentSource
 
+	csiVol := &csi.Volume{
+		VolumeId:           vol.VolID,
+		CapacityBytes:      req.GetCapacityRange().GetRequiredBytes(),
+		VolumeContext:      req.GetParameters(),
+		ContentSource:      req.GetVolumeContentSource(),
+	}
+	topologies := common.GetTopologyFromParams(req.GetParameters(), req.GetAccessibilityRequirements())
+	if topologies != nil {
+		csiVol.AccessibleTopology = []*csi.Topology{
+			{
+				Segments: topologies,
+			},
+		}
+	}
+
 	return &csi.CreateVolumeResponse{
-		Volume: &csi.Volume{
-			VolumeId:      vol.VolID,
-			CapacityBytes: req.GetCapacityRange().GetRequiredBytes(),
-			VolumeContext: req.GetParameters(),
-			ContentSource: req.GetVolumeContentSource(),
-			//AccessibleTopology: topologies,
-		},
+		Volume: csiVol,
 	}, nil
 }
 
