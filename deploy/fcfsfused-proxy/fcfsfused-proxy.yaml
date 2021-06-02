@@ -1,0 +1,70 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: csi-fcfsfused-proxy
+spec:
+  selector:
+    matchLabels:
+      app: csi-fcfsfused-proxy
+  template:
+    metadata:
+      labels:
+        app: csi-fcfsfused-proxy
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: type
+                    operator: NotIn
+                    values:
+                      - virtual-kubelet
+      containers:
+      - image: vazmin/fcfsfused-proxy:v0.1.0
+        imagePullPolicy: IfNotPresent
+        name: sysctl-install-fcfsfused-proxy
+        args:
+          - --v=4
+          - "--fcfsfused-proxy-endpoint=$(FCFSFUSED_PROXY_ENDPOINT)"
+        env:
+          - name: FCFSFUSED_PROXY_ENDPOINT
+            value: unix:///csi/fcfsfused-proxy.sock
+        resources:
+          requests:
+            cpu: 10m
+        securityContext:
+          privileged: true
+          capabilities:
+            add: [ "SYS_ADMIN" ]
+        volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+          - mountPath: /tmp/csi/keys
+            name: keys-tmp-dir
+          - mountPath: /var/lib/kubelet/plugins
+            mountPropagation: Bidirectional
+            name: plugins-dir
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      restartPolicy: Always
+      tolerations:
+        - operator: Exists
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins
+            type: Directory
+          name: plugins-dir
+        - name: keys-tmp-dir
+          emptyDir: {
+            medium: "Memory"
+          }

@@ -1,0 +1,8 @@
+[Unit]
+Description=fcfs_fused proxy service
+
+[Service]
+ExecStart=/usr/bin/fcfsfused-proxy --v=5 --fcfsfused-proxy-endpoint=unix://var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io/fcfsfused-proxy.sock
+
+[Install]
+WantedBy=multi-user.target

@@ -18,23 +18,28 @@ package fcfs
 
 import (
 	"context"
-	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/happyfish100/fastcfs-csi/pkg/common"
-	csicommon "github.com/happyfish100/fastcfs-csi/pkg/csi-common"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"io/ioutil"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
 	"k8s.io/mount-utils"
 	"os"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
+	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
+	mount_fcfs_fused "vazmin.github.io/fastcfs-csi/pkg/fcfsfused-proxy/pb"
 )
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
-	mounter     mount.Interface
-	volumeLocks *common.VolumeLocks
-	topology    map[string]string
+	fcfsFusedEndpoint        string
+	enableFcfsFusedProxy     bool
+	fcfsFusedProxyConnTimout int
+	mounter                  mount.Interface
+	volumeLocks              *common.VolumeLocks
+	topology                 map[string]string
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
@@ -57,20 +62,12 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 	}
 	defer ns.volumeLocks.Release(volumeId)
 
-	notMnt, err := ns.mounter.IsLikelyNotMountPoint(stagingTargetPath)
+	mnt, err := ns.ensureMountPoint(stagingTargetPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			if err = os.MkdirAll(stagingTargetPath, 0750); err != nil {
-				return nil, fmt.Errorf("create target path: %w", err)
-			}
-			notMnt = true
-		} else {
-			return nil, fmt.Errorf("check target path: %w", err)
-		}
+		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", stagingTargetPath, err)
 	}
-
-	if !notMnt {
-		klog.V(4).Infof("FastCFS: volume %s is already mounted to %s", volumeId, stagingTargetPath)
+	if mnt {
+		klog.V(2).Infof("NodeStageVolume: volume %s is already mounted on %s", volumeId, stagingTargetPath)
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
@@ -79,9 +76,13 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 		return nil, status.Errorf(codes.Internal, "new FcfsVolume err %v", err)
 	}
 	vol.VolPath = stagingTargetPath
-	err = fuseMount(ctx, vol, cr)
+	if ns.enableFcfsFusedProxy {
+		_, err = mountFcfsFusedWithProxy(ctx, vol, ns.fcfsFusedEndpoint, ns.fcfsFusedProxyConnTimout, request.Secrets)
+	} else {
+		err = fuseMount(ctx, vol, cr)
+	}
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "fuse mount err %v", err)
+		return nil, status.Errorf(codes.Internal, "[FcfsCFS] fuse mount err %v", err)
 	}
 
 	return &csi.NodeStageVolumeResponse{}, nil
@@ -112,14 +113,15 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 		// return nil, status.Errorf(codes.NotFound, "Volume not mounted %s", targetPath)
 	}
 
-	vol, err := newFcfsVolumeFromVolID(volumeID, nil)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
+	//vol, err := newFcfsVolumeFromVolID(volumeID, nil)
+	//if err != nil {
+	//	return nil, status.Error(codes.Internal, err.Error())
+	//}
 	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint %s on volumeID(%s)", targetPath, volumeID)
-	err = fuseUnmount(ctx, vol)
+	//err = fuseUnmount(ctx, vol)
+	err = mount.CleanupMountPoint(targetPath, ns.mounter, false)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %q: %v", targetPath, err)
 	}
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
@@ -156,18 +158,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 	defer ns.volumeLocks.Release(volumeId)
 
-	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
+	mnt, err := ns.ensureMountPoint(targetPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			if err = os.MkdirAll(targetPath, 0750); err != nil {
-				return nil, fmt.Errorf("create target path: %w", err)
-			}
-			notMnt = true
-		} else {
-			return nil, fmt.Errorf("check target path: %w", err)
-		}
+		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
 	}
-	if !notMnt {
+	if mnt {
+		klog.V(2).Infof("NodePublishVolume: volume %s is already mounted on %s", volumeId, targetPath)
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
@@ -295,7 +291,6 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context, request *csi.NodeExp
 	return nil, status.Error(codes.Unimplemented, "NodeExpandVolume")
 }
 
-
 func (ns *nodeServer) NodeGetInfo(ctx context.Context, request *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	return &csi.NodeGetInfoResponse{
 		NodeId:            ns.Driver.NodeID,
@@ -304,4 +299,55 @@ func (ns *nodeServer) NodeGetInfo(ctx context.Context, request *csi.NodeGetInfoR
 			Segments: ns.topology,
 		},
 	}, nil
+}
+
+// ensureMountPoint: create mount point if not exists
+// return <true, nil> if it's already a mounted point otherwise return <false, nil>
+func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
+	notMnt, err := ns.mounter.IsLikelyNotMountPoint(target)
+	if err != nil && !os.IsNotExist(err) {
+		if IsCorruptedDir(target) {
+			notMnt = false
+			klog.Warningf("detected corrupted mount for targetPath [%s]", target)
+		} else {
+			return !notMnt, err
+		}
+	}
+
+	if !notMnt {
+		// testing original mount point, make sure the mount link is valid
+		_, err := ioutil.ReadDir(target)
+		if err == nil {
+			klog.V(2).Infof("already mounted to target %s", target)
+			return !notMnt, nil
+		}
+		// mount link is invalid, now unmount and remount later
+		klog.Warningf("ReadDir %s failed with %v, unmount this directory", target, err)
+		if err := ns.mounter.Unmount(target); err != nil {
+			klog.Errorf("Unmount directory %s failed with %v", target, err)
+			return !notMnt, err
+		}
+		notMnt = true
+		return !notMnt, err
+	}
+	if err := common.MakeDir(target); err != nil {
+		klog.Errorf("MakeDir failed on target: %s (%v)", target, err)
+		return !notMnt, err
+	}
+	return !notMnt, nil
+}
+
+func IsCorruptedDir(dir string) bool {
+	_, pathErr := mount.PathExists(dir)
+	return pathErr != nil && mount.IsCorruptedMnt(pathErr)
+}
+
+type MountClient struct {
+	service mount_fcfs_fused.MountServiceClient
+}
+
+// NewMountClient returns a new mount client
+func NewMountClient(cc *grpc.ClientConn) *MountClient {
+	service := mount_fcfs_fused.NewMountServiceClient(cc)
+	return &MountClient{service}
 }

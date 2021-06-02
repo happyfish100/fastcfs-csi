@@ -39,6 +39,10 @@ type Config struct {
 
 	IsControllerServer bool
 	IsNodeServer       bool
+
+	FcfsFusedProxyEndpoint string
+	EnableFcfsFusedProxy   bool
+	FcfsFusedProxyConnTimout int
 }
 
 type ClusterInfo struct {

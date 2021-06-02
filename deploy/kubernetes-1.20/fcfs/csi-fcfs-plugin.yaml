@@ -15,17 +15,11 @@ spec:
     - name: dummy
       port: 12345
 ---
-kind: StatefulSet
+kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-fcfsplugin
 spec:
-  serviceName: "csi-fcfsplugin"
-  # One replica only:
-  # Host path driver only works when everything runs
-  # on a single node. We achieve that by starting it once and then
-  # co-locate all other pods via inter-pod affinity
-  replicas: 1
   selector:
     matchLabels:
       app: csi-fcfsplugin
@@ -34,14 +28,19 @@ spec:
       labels:
         app: csi-fcfsplugin
     spec:
-      serviceAccount: csi-external-health-monitor-controller
+      serviceAccount: fastcfs-csi-nodeplugin
+      priorityClassName: system-node-critical
+      hostNetwork: true
+      # to use e.g. Rook orchestrated cluster, and mons' FQDN is
+      # resolved through k8s service, set dns policy to cluster first
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: node-driver-registrar
           image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
           args:
             - --v=5
             - --csi-address=/csi/csi.sock
-            - --kubelet-registration-path=/var/lib/kubelet/plugins/csi-fcfs/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io/csi.sock
           securityContext:
             # This is necessary only for systems with SELinux, where
             # non-privileged sidecar containers cannot access unix domain socket
@@ -58,9 +57,8 @@ spec:
               name: socket-dir
             - mountPath: /registration
               name: registration-dir
-
         - name: fcfs
-          image: vazmin/fcfs-csi:v0.1.0
+          image: vazmin/fcfs-csi:canary
 #          imagePullPolicy: "Never"
           imagePullPolicy: "IfNotPresent"
           args:
@@ -70,6 +68,8 @@ spec:
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+            - name: FCFSFUSED_PROXY_ENDPOINT
+              value: unix:///csi/fcfsfused-proxy.sock
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -117,7 +117,7 @@ spec:
 
       volumes:
         - hostPath:
-            path: /var/lib/kubelet/plugins/csi-fcfs
+            path: /var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:

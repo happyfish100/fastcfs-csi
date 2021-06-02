@@ -18,10 +18,11 @@ package fcfs
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/happyfish100/fastcfs-csi/pkg/common"
-	csicommon "github.com/happyfish100/fastcfs-csi/pkg/csi-common"
 	"k8s.io/klog/v2"
 	"k8s.io/mount-utils"
+	utilexec "k8s.io/utils/exec"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
+	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
 )
 
 type fcfsDriver struct {
@@ -57,11 +58,17 @@ func NewControllerServer(d *csicommon.CSIDriver) *controllerServer {
 	}
 }
 
-func NewNodeServer(d *csicommon.CSIDriver, topology map[string]string) *nodeServer {
+func NewNodeServer(d *csicommon.CSIDriver, enableFcfsFusedProxy bool, fcfsFusedEndpoint string, fcfsFusedProxyConnTimout int, topology map[string]string) *nodeServer {
 	return &nodeServer{
 		DefaultNodeServer: csicommon.NewDefaultNodeServer(d, topology),
-		mounter:           mount.New(""),
-		volumeLocks:       common.NewVolumeLocks(),
+		mounter: &mount.SafeFormatAndMount{
+			Interface: mount.New(""),
+			Exec:      utilexec.New(),
+		},
+		volumeLocks: common.NewVolumeLocks(),
+		enableFcfsFusedProxy: enableFcfsFusedProxy,
+		fcfsFusedEndpoint: fcfsFusedEndpoint,
+		fcfsFusedProxyConnTimout: fcfsFusedProxyConnTimout,
 	}
 }
 
@@ -70,6 +77,7 @@ func (fc *fcfsDriver) Run(conf *common.Config) {
 	if fc.driver == nil {
 		klog.Fatalln("Failed to initialize CSI Driver")
 	}
+
 	if conf.IsControllerServer || !conf.IsNodeServer {
 		if !conf.Ephemeral {
 			fc.driver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
@@ -95,7 +103,7 @@ func (fc *fcfsDriver) Run(conf *common.Config) {
 			csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 			csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
 		})
-		fc.ns = NewNodeServer(fc.driver, topology)
+		fc.ns = NewNodeServer(fc.driver, conf.EnableFcfsFusedProxy, conf.FcfsFusedProxyEndpoint, conf.FcfsFusedProxyConnTimout, topology)
 	}
 
 	s := csicommon.NewNonBlockingGRPCServer()

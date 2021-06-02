@@ -2,7 +2,7 @@ package fcfs
 
 import (
 	"fmt"
-	"github.com/happyfish100/fastcfs-csi/pkg/common"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
 	"math"
 	"testing"
 )
