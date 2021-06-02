@@ -82,7 +82,7 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 		err = fuseMount(ctx, vol, cr)
 	}
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "fuse mount err %v", err)
+		return nil, status.Errorf(codes.Internal, "[FcfsCFS] fuse mount err %v", err)
 	}
 
 	return &csi.NodeStageVolumeResponse{}, nil

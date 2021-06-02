@@ -26,6 +26,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: sysctl-install-fcfsfused-proxy
         args:
+          - --v=4
           - "--fcfsfused-proxy-endpoint=$(FCFSFUSED_PROXY_ENDPOINT)"
         env:
           - name: FCFSFUSED_PROXY_ENDPOINT
@@ -35,9 +36,16 @@ spec:
             cpu: 10m
         securityContext:
           privileged: true
+          capabilities:
+            add: [ "SYS_ADMIN" ]
         volumeMounts:
           - mountPath: /csi
             name: socket-dir
+          - mountPath: /tmp/csi/keys
+            name: keys-tmp-dir
+          - mountPath: /var/lib/kubelet/plugins
+            mountPropagation: Bidirectional
+            name: plugins-dir
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -52,3 +60,11 @@ spec:
             path: /var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io
             type: DirectoryOrCreate
           name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins
+            type: Directory
+          name: plugins-dir
+        - name: keys-tmp-dir
+          emptyDir: {
+            medium: "Memory"
+          }

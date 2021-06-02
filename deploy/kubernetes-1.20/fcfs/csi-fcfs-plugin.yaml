@@ -65,8 +65,6 @@ spec:
             - "--drivername=fcfs.csi.vazmin.github.io"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
-            - "--fcfsfused-proxy-endpoint=$(FCFSFUSED_PROXY_ENDPOINT)"
-            - "--enable-fcfsfused-proxy=true"
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
