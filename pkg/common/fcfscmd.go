@@ -18,7 +18,7 @@ package common
 
 import (
 	"context"
-	glog "k8s.io/klog/v2"
+	"k8s.io/klog/v2"
 	"os/exec"
 )
 
@@ -27,7 +27,7 @@ func ExecCommand(ctx context.Context, program string, args ...string) ([]byte, e
 		cmd           = exec.Command(program, args...)
 		sanitizedArgs = StripSecretInArgs(args)
 	)
-	glog.Info(ctx, "command : %s %v", program, sanitizedArgs)
+	klog.Infof("command : %s %v", program, sanitizedArgs)
 	return cmd.CombinedOutput()
 }
 

@@ -3,15 +3,17 @@ package fcfs
 import (
 	"context"
 	"fmt"
-	"github.com/happyfish100/fastcfs-csi/pkg/common"
+	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	"os"
 	"strings"
+	"time"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
+	mount_fcfs_fused "vazmin.github.io/fastcfs-csi/pkg/fcfsfused-proxy/pb"
 )
 
 func fuseMount(ctx context.Context, volume *FcfsVolume, cr *common.Credentials) error {
 	klog.V(5).Infof("fuse client mount volume %s", volume.VolID)
-	// os.MkdirAll("/opt/fastcfs/auth", os.ModePerm) // TODO: delete
 	if err := common.CreateDirIfNotExists(volume.VolPath); err != nil {
 		return err
 	}
@@ -20,7 +22,7 @@ func fuseMount(ctx context.Context, volume *FcfsVolume, cr *common.Credentials) 
 	if err := common.CreateDirIfNotExists(basePath); err != nil {
 		return err
 	}
-	//configFile, err := common.ConfigFile(common.CsiConfigFile, "1")
+
 	args := []string{
 		"-u", cr.UserName,
 		"-k", cr.KeyFile,
@@ -40,6 +42,41 @@ func fuseMount(ctx context.Context, volume *FcfsVolume, cr *common.Credentials) 
 	klog.Warningf("[FastCFS] failed to mount %s, output <= %s", volume.VolID, string(output))
 
 	return err
+}
+
+func mountFcfsFusedWithProxy(ctx context.Context, volume *FcfsVolume, fcfsFusedProxyEndpoint string, fcfsFusedProxyConnTimout int, secrets map[string]string) (string, error) {
+	klog.V(5).Infof("fuse client proxy mount volume %s", volume.VolID)
+	if err := common.CreateDirIfNotExists(volume.VolPath); err != nil {
+		return "", err
+	}
+
+	basePath := common.BuildBasePath(volume.VolName)
+	args := []string{
+		"-n", volume.VolName,
+		"-m", volume.VolPath,
+		volume.getFuseClientConfigURL(), "restart",
+	}
+	var resp *mount_fcfs_fused.MountFcfsFusedResponse
+	var output string
+	connectionTimout := time.Duration(fcfsFusedProxyConnTimout)
+	ctx, cancel := context.WithTimeout(context.Background(), connectionTimout*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, fcfsFusedProxyEndpoint, grpc.WithInsecure(), grpc.WithBlock())
+	if err == nil {
+		mountClient := NewMountClient(conn)
+		mountReq := mount_fcfs_fused.MountFcfsFusedRequest{
+			BasePath:  basePath,
+			MountArgs: args,
+			Secrets:   secrets,
+		}
+		klog.V(2).Infof("calling fcfsfused Proxy: MountFcfsFused function")
+		resp, err = mountClient.service.MountFcfsFused(context.TODO(), &mountReq)
+		if err != nil {
+			klog.Error("GRPC call returned with an error:", err)
+		}
+		output = resp.GetOutput()
+	}
+	return output, err
 }
 
 func fuseUnmount(ctx context.Context, volume *FcfsVolume) error {
@@ -63,21 +100,6 @@ func fuseUnmount(ctx context.Context, volume *FcfsVolume) error {
 	}
 	return nil
 }
-
-//
-//func createFuseClientConf(volume *FcfsVolume) (string, error) {
-//	input, err := ioutil.ReadFile(fuseClientConf)
-//	if err != nil {
-//		return "", err
-//	}
-//	output := bytes.Replace(input, []byte(mountpointVar), []byte(volume.VolPath), -1)
-//	outputFinal := bytes.Replace(output, []byte(namespaceVar), []byte(volume.VolID), -1)
-//	confPath := getConfPath(volume)
-//	if err = ioutil.WriteFile(confPath, outputFinal, 0666); err != nil {
-//		return "", err
-//	}
-//	return confPath, err
-//}
 
 func bindMount(ctx context.Context, from, to string, mntOptions []string) error {
 	mntOptionSli := strings.Join(mntOptions, ",")

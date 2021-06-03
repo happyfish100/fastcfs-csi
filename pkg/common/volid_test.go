@@ -25,20 +25,19 @@ import (
 func TestComposeCSIID(t *testing.T) {
 	cid := &CSIIdentifier{
 		ClusterID: "1",
-		userName:  "admin",
-		volName:   csiVolNamingPrefix + "pvc-4cb82c80-c1e9-4491-8625-e24b54dabb49",
+		UserName:  "admin",
+		VolName:   CsiVolNamingPrefix + "pvc-4cb82c80-c1e9-4491-8625-e24b54dabb49",
 	}
 
-	csiid, err := cid.composeCSIID()
+	csiid, err := cid.ComposeCSIID()
 	if err != nil {
 		t.Errorf(err.Error())
-
 	}
 	fmt.Println(csiid)
 
 	decid := &CSIIdentifier{}
-	decid.decomposeCSIID(csiid)
+	decid.DecomposeCSIID(csiid)
 	assert.Equal(t, cid.ClusterID, decid.ClusterID)
-	assert.Equal(t, cid.userName, decid.userName)
-	assert.Equal(t, cid.volName, decid.volName)
+	assert.Equal(t, cid.UserName, decid.UserName)
+	assert.Equal(t, cid.VolName, decid.VolName)
 }

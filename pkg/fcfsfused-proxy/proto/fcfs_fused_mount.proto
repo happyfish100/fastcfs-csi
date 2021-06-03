@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = ".;pb";
+
+message MountFcfsFusedRequest {
+	string basePath = 1;
+	repeated string mountArgs = 2;
+	map<string, string> secrets = 3;
+}
+
+message MountFcfsFusedResponse {
+	string output = 1;
+}
+
+service MountService {
+	rpc MountFcfsFused(MountFcfsFusedRequest) returns (MountFcfsFusedResponse) {};
+}

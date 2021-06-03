@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/happyfish100/fastcfs-csi/pkg/common"
 	"k8s.io/klog/v2"
-	"math"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
 )
 
 // createVolume
@@ -101,7 +100,9 @@ func newFcfsVolume(ctx context.Context, req *csi.CreateVolumeRequest, requestNam
 
 func newFcfsVolumeFromVolID(volID string, cr *csi.CapacityRange) (*FcfsVolume, error) {
 	cid := &common.CSIIdentifier{}
-	cid.DecomposeCSIID(volID)
+	if err := cid.DecomposeCSIID(volID); err != nil {
+		return nil, err
+	}
 
 	url, err := common.ConfigURL(common.CsiConfigFile, cid.ClusterID)
 	if err != nil {
@@ -121,14 +122,12 @@ func newFcfsVolumeFromVolID(volID string, cr *csi.CapacityRange) (*FcfsVolume, e
 
 func createVolume(ctx context.Context, volume *FcfsVolume, credentials *common.Credentials) error {
 
-	//os.MkdirAll("/opt/fastcfs/auth", os.ModePerm) // TODO: delete
-
 	args := []string{
 		"-u", credentials.UserName,
 		"-k", credentials.KeyFile,
 		"-c", volume.getPoolConfigURL(),
 		"create", volume.VolName,
-		fmt.Sprintf("%dg", gibCeil(volume.Size)),
+		fmt.Sprintf("%dg", common.RoundUpGiB(volume.Size)),
 	}
 
 	output, err := common.ExecPoolCommand(ctx, args...)
@@ -161,7 +160,7 @@ func resizeVolume(ctx context.Context, volume *FcfsVolume, credentials *common.C
 		"-k", credentials.KeyFile,
 		"-c", volume.getPoolConfigURL(),
 		"quota", volume.VolName,
-		fmt.Sprintf("%dg", gibCeil(volume.Size)),
+		fmt.Sprintf("%dg", common.RoundUpGiB(volume.Size)),
 	}
 
 	output, err := common.ExecPoolCommand(ctx, args...)
@@ -173,10 +172,6 @@ func resizeVolume(ctx context.Context, volume *FcfsVolume, credentials *common.C
 
 	klog.V(4).Infof("[FastCFS] successfully resize FcfsVolume: %s", volume.VolID)
 	return err
-}
-
-func gibCeil(size int64) int64 {
-	return int64(math.Ceil(float64(size / common.GiB)))
 }
 
 func deleteVolume(ctx context.Context, vol *FcfsVolume, credentials *common.Credentials) error {

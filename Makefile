@@ -11,11 +11,11 @@ all: build
 BIN_OUTPUT=bin
 FCFS_CSI_VERSION=$(shell . $(CURDIR)/build.env ; echo $${FCFS_CSI_VERSION})
 
-CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),hub.docker.com/r/vazmin/fcfs-csi)
+CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),vazmin/fcfs-csi)
 CSI_IMAGE_VERSION=$(shell . $(CURDIR)/build.env ; echo $${CSI_IMAGE_VERSION})
 CSI_IMAGE=$(CSI_IMAGE_NAME):$(CSI_IMAGE_VERSION)
 
-GO_PROJECT=github.com/happyfish100/fastcfs-csi
+GO_PROJECT=vazmin.github.io/fastcfs-csi
 
 ifndef REV
 # Revision that gets built into each binary via the main.version
@@ -77,6 +77,21 @@ local-deploy: image-clean build image-csi kind-load-image delete-plugin-po
 	@test -n "$(shell which $(CONTAINER_CMD) 2>/dev/null)" || { echo "Missing container support, install Podman or Docker"; exit 1; }
 	@echo "$(CONTAINER_CMD)" > .container-cmd
 
+.PHONY: fcfsfused-proxy
+fcfsfused-proxy:
+	CGO_ENABLED=0 GOOS=linux go build -mod vendor -ldflags="-s -w" -o _output/fcfsfused-proxy ./pkg/fcfsfused-proxy
+
+.PHONY: fcfsfused-proxy-container
+fcfsfused-proxy-container:
+	docker build -t fcfsfused-proxy -f pkg/fcfsfused-proxy/Dockerfile .
+
+.PHONY: install-fcfsfused-proxy
+install-fcfsfused-proxy:
+	kubectl apply -f ./deploy/fcfsfused-proxy/fcfsfused-proxy.yaml
+
+.PHONY: uninstall-fcfsfused-proxy
+uninstall-fcfsfused-proxy:
+	kubectl delete -f ./deploy/fcfsfused-proxy/fcfsfused-proxy.yaml --ignore-not-found
 
 clean:
 	-rm -rf ${BIN_OUTPUT}

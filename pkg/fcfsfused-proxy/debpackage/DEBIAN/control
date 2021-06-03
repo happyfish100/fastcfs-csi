@@ -1,0 +1,7 @@
+Package: fcfsfused-proxy
+Version: 0.1.0
+Section: base
+Priority: optional
+Architecture: all
+Maintainer: FastCFS CSI driver maintainers
+Description: runs fcfs_fused as a proxy
