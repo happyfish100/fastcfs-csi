@@ -101,21 +101,6 @@ func fuseUnmount(ctx context.Context, volume *FcfsVolume) error {
 	return nil
 }
 
-//
-//func createFuseClientConf(volume *FcfsVolume) (string, error) {
-//	input, err := ioutil.ReadFile(fuseClientConf)
-//	if err != nil {
-//		return "", err
-//	}
-//	output := bytes.Replace(input, []byte(mountpointVar), []byte(volume.VolPath), -1)
-//	outputFinal := bytes.Replace(output, []byte(namespaceVar), []byte(volume.VolID), -1)
-//	confPath := getConfPath(volume)
-//	if err = ioutil.WriteFile(confPath, outputFinal, 0666); err != nil {
-//		return "", err
-//	}
-//	return confPath, err
-//}
-
 func bindMount(ctx context.Context, from, to string, mntOptions []string) error {
 	mntOptionSli := strings.Join(mntOptions, ",")
 	output, err := common.ExecCommand(ctx, "mount", "-o", mntOptionSli, from, to)
