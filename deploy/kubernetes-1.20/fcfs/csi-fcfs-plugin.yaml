@@ -64,14 +64,14 @@ spec:
           args:
             - "--drivername=fcfs.csi.vazmin.github.io"
             - "--endpoint=$(CSI_ENDPOINT)"
-            - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--nodeid=$(CSI_NODE_NAME)"
 #            - "--domainLabels="
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
             - name: FCFSFUSED_PROXY_ENDPOINT
               value: unix:///csi/fcfsfused-proxy.sock
-            - name: KUBE_NODE_NAME
+            - name: CSI_NODE_NAME
               valueFrom:
                 fieldRef:
                   apiVersion: v1

@@ -14,12 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fcfs
+package driver
 
 import (
 	"context"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io/ioutil"
@@ -29,17 +28,15 @@ import (
 	"os"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
 	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
-	mount_fcfs_fused "vazmin.github.io/fastcfs-csi/pkg/fcfsfused-proxy/pb"
+	"vazmin.github.io/fastcfs-csi/pkg/fcfs"
 )
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
-	fcfsFusedEndpoint        string
-	enableFcfsFusedProxy     bool
-	fcfsFusedProxyConnTimout int
-	mounter                  mount.Interface
-	volumeLocks              *common.VolumeLocks
-	topology                 map[string]string
+	mountOptions *fcfs.MountOptions
+	mounter      Mounter
+	volumeLocks  *common.VolumeLocks
+	topology     map[string]string
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
@@ -71,16 +68,23 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
-	vol, err := newFcfsVolumeFromVolID(volumeId, nil)
+	volOptions, err := newVolOptionsFromVolID(volumeId, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "new FcfsVolume err %v", err)
 	}
-	vol.VolPath = stagingTargetPath
-	if ns.enableFcfsFusedProxy {
-		_, err = mountFcfsFusedWithProxy(ctx, vol, ns.fcfsFusedEndpoint, ns.fcfsFusedProxyConnTimout, request.Secrets)
-	} else {
-		err = fuseMount(ctx, vol, cr)
+	volOptions.VolPath = stagingTargetPath
+
+	mountOptions := &fcfs.MountOptionsSecrets{
+		MountOptions: ns.mountOptions,
+		Secrets: request.Secrets,
 	}
+	// TODO
+	if mountOptions.EnableFcfsFusedProxy {
+		_, err = fcfs.MountFcfsFusedWithProxy(ctx, volOptions, mountOptions)
+	} else {
+		err = fcfs.FuseMount(ctx, volOptions, cr)
+	}
+
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "[FcfsCFS] fuse mount err %v", err)
 	}
@@ -113,7 +117,7 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 		// return nil, status.Errorf(codes.NotFound, "Volume not mounted %s", targetPath)
 	}
 
-	//vol, err := newFcfsVolumeFromVolID(volumeID, nil)
+	//vol, err := newVolOptionsFromVolID(volumeID, nil)
 	//if err != nil {
 	//	return nil, status.Error(codes.Internal, err.Error())
 	//}
@@ -144,7 +148,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if len(targetPath) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target path not provided")
 	}
-
+	stagingTargetPath := req.GetStagingTargetPath()
+	if len(stagingTargetPath) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "StagingTargetPath path not provided")
+	}
 	//ephemeralVolume := request.GetVolumeContext()["csi.storage.k8s.io/ephemeral"] == "true" ||
 	//	request.GetVolumeContext()["csi.storage.k8s.io/ephemeral"] == "" && fc.conf.Ephemeral // Kubernetes 1.15 doesn't have csi.storage.k8s.io/ephemeral.
 
@@ -172,12 +179,14 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if req.GetReadonly() {
 		mountOptions = append(mountOptions, "ro")
 	}
-	err = bindMount(ctx, req.GetStagingTargetPath(), req.GetTargetPath(), mountOptions)
-
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "mount bind err %v", err)
+	//err = bindMount(ctx, req.GetStagingTargetPath(), targetPath, mountOptions)
+	if err := ns.mounter.Mount(stagingTargetPath, targetPath, "", mountOptions); err != nil {
+		if removeErr := os.Remove(targetPath); removeErr != nil {
+			return nil, status.Errorf(codes.Internal, "Could not remove mount target %q: %v", targetPath, removeErr)
+		}
+		return nil, status.Errorf(codes.Internal, "Could not mount %q at %q: %v", stagingTargetPath, targetPath, err)
 	}
-
+	klog.V(4).Infof("successfully mount %s to %s, %v", stagingTargetPath, targetPath, mountOptions)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -330,7 +339,7 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 		notMnt = true
 		return !notMnt, err
 	}
-	if err := common.MakeDir(target); err != nil {
+	if err := ns.mounter.MakeDir(target); err != nil {
 		klog.Errorf("MakeDir failed on target: %s (%v)", target, err)
 		return !notMnt, err
 	}
@@ -342,12 +351,3 @@ func IsCorruptedDir(dir string) bool {
 	return pathErr != nil && mount.IsCorruptedMnt(pathErr)
 }
 
-type MountClient struct {
-	service mount_fcfs_fused.MountServiceClient
-}
-
-// NewMountClient returns a new mount client
-func NewMountClient(cc *grpc.ClientConn) *MountClient {
-	service := mount_fcfs_fused.NewMountServiceClient(cc)
-	return &MountClient{service}
-}

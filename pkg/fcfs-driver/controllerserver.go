@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fcfs
+package driver
 
 import (
 	"context"
@@ -24,12 +24,33 @@ import (
 	"k8s.io/klog/v2"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
 	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
+	"vazmin.github.io/fastcfs-csi/pkg/fcfs"
+)
+
+var (
+	// NewCFSFunc is a variable for the cloud.NewCloud function that can
+	// be overwritten in unit tests.
+	NewCFSFunc = fcfs.NewCFS
 )
 
 type controllerServer struct {
 	*csicommon.DefaultControllerServer
+	cfs fcfs.Cfs
 	volumeLocks *common.VolumeLocks
 }
+
+func NewControllerServer(d *csicommon.CSIDriver) (*controllerServer, error) {
+	cfsSrv, _ := NewCFSFunc()
+
+	return &controllerServer{
+		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
+		volumeLocks:             common.NewVolumeLocks(),
+		cfs: cfsSrv,
+	}, nil
+}
+
+
+
 
 // CreateVolume create volume
 func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (resp *csi.CreateVolumeResponse, finalErr error) {
@@ -69,33 +90,30 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	}
 	defer cs.volumeLocks.Release(requestName)
 
-	//topologies := []*csi.Topology{{
-	//	Segments: cs.Driver.Topology,
-	//}}
-	vol, err := newFcfsVolume(ctx, req, requestName, cr)
+	volOptions, err := newVolumeOptions(ctx, req, requestName, cr)
 	if err != nil {
 		klog.Errorf("validation and extraction of FcfsVolume options failed: %v", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	exists := volumeExists(ctx, vol, cr)
+	exists, _ := cs.cfs.VolumeExists(ctx, volOptions.BaseConfigURL, volOptions.VolName, cr)
 	// TODO if exists to check capacity
 	//	if exVol.VolSize < capacity {
 	//		return nil, status.Errorf(codes.AlreadyExists, "Volume with the same name: %s but with different size already exist", req.GetName())
 	//	}
 	if !exists {
-		err = createVolume(ctx, vol, cr)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to create FcfsVolume %v: %w", vol.VolID, err)
+		_, createErr := cs.cfs.CreateVolume(ctx, volOptions, cr)
+		if createErr != nil {
+			return nil, status.Errorf(codes.Internal, "failed to create FcfsVolume %v: %w", volOptions.VolID, createErr)
 		}
-		klog.V(4).Infof("created FcfsVolume %s at path %s", vol.VolID, vol.VolPath)
+		klog.V(4).Infof("created FcfsVolume %s at path %s", volOptions.VolID, volOptions.VolPath)
 	}
 
-	// TODO VolumeContentSource
+	// VolumeContentSource. Not yet supported VolumeSnapshot and PersistentVolumeClaim Cloning
 
 	csiVol := &csi.Volume{
-		VolumeId:           vol.VolID,
-		CapacityBytes:      req.GetCapacityRange().GetRequiredBytes(),
+		VolumeId:           volOptions.VolID,
+		CapacityBytes:      common.RoundOffBytes(req.GetCapacityRange().GetRequiredBytes()),
 		VolumeContext:      req.GetParameters(),
 		ContentSource:      req.GetVolumeContentSource(),
 	}
@@ -139,25 +157,17 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	}
 	defer cs.volumeLocks.Release(volID)
 
-	vol, err := newFcfsVolumeFromVolID(volID, nil)
+	vol, err := newVolOptionsFromVolID(volID, nil)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	if err := deleteVolume(ctx, vol, cr); err != nil {
+	if err := cs.cfs.DeleteVolume(ctx, vol, cr); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete FcfsVolume %v: %w", volID, err)
 	}
 	klog.V(4).Infof("FcfsVolume %v successfully deleted", volID)
 
 	return &csi.DeleteVolumeResponse{}, nil
 }
-
-//func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-//	return nil, status.Error(codes.Unimplemented, "ControllerPublishVolume")
-//}
-//
-//func (cs *controllerServer) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-//	return nil, status.Error(codes.Unimplemented, "ControllerUnpublishVolume")
-//}
 
 // ValidateVolumeCapabilities checks whether the volume capabilities requested are supported.
 func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
@@ -217,21 +227,19 @@ func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 	}
 	defer cr.DeleteCredentials()
 
-	RoundOffSize := common.RoundOffBytes(req.GetCapacityRange().GetRequiredBytes())
-
-	vol, err := newFcfsVolumeFromVolID(volumeId, req.GetCapacityRange())
+	vol, err := newVolOptionsFromVolID(volumeId, req.GetCapacityRange())
 	if err != nil {
 		klog.Errorf("failed to new volume %s: %v", volumeId, err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-
-	if err = resizeVolume(ctx, vol, cr); err != nil {
+	newSize, err := cs.cfs.ResizeVolume(ctx, vol, cr)
+	if err != nil {
 		klog.Errorf("failed to expand volume %s: %v", volumeId, err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &csi.ControllerExpandVolumeResponse{
-		CapacityBytes:         RoundOffSize,
+		CapacityBytes:         newSize,
 		NodeExpansionRequired: false,
 	}, nil
 }

@@ -22,13 +22,10 @@ Licensed under the Apache License, Version 2.0.
 package common
 
 import (
-	"context"
 	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/klog/v2"
 	"strings"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -71,16 +68,6 @@ func getTopology(domainLabel []string, csiTopology []*csi.Topology) (map[string]
 	return nil, false
 }
 
-func k8sGetNodeLabels(nodeName string) (map[string]string, error) {
-	client := NewK8sClient()
-	node, err := client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get node %q information: %w", nodeName, err)
-	}
-
-	return node.GetLabels(), nil
-}
-
 func parseDomainLabels(domainLabels string) []string {
 	return strings.SplitN(domainLabels, labelSeparator, -1)
 }
@@ -88,7 +75,7 @@ func parseDomainLabels(domainLabels string) []string {
 // GetTopologyFromDomainLabels returns the CSI topology map, determined from
 // the domain labels and their values from the CO system
 // Expects domainLabels in arg to be in the format "[prefix/]<name>,[prefix/]<name>,...",.
-func GetTopologyFromDomainLabels(domainLabels, nodeName, driverName string) (map[string]string, error) {
+func GetTopologyFromDomainLabels(nodeLabels map[string]string, domainLabels, driverName string) (map[string]string, error) {
 	if domainLabels == "" {
 		return nil, nil
 	}
@@ -117,11 +104,6 @@ func GetTopologyFromDomainLabels(domainLabels, nodeName, driverName string) (map
 		labelsIn[label] = true
 		labelCount++
 	}
-	// TODO: other CO system
-	nodeLabels, err := k8sGetNodeLabels(nodeName)
-	if err != nil {
-		return nil, err
-	}
 
 	// Determine values for requested labels from node labels
 	domainMap := make(map[string]string)
@@ -146,7 +128,7 @@ func GetTopologyFromDomainLabels(domainLabels, nodeName, driverName string) (map
 				missingLabels = append(missingLabels, key)
 			}
 		}
-		return nil, fmt.Errorf("missing domain labels %v on node %q", missingLabels, nodeName)
+		return nil, fmt.Errorf("missing domain labels %v", missingLabels)
 	}
 
 	klog.V(4).Infof("list of domains processed: %+v", domainMap)

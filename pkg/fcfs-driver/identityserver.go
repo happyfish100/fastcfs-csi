@@ -19,7 +19,7 @@ Modifications Copyright 2021 vazmin.
 Licensed under the Apache License, Version 2.0.
 */
 
-package fcfs
+package driver
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"

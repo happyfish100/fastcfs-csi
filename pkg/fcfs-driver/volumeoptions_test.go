@@ -1,10 +1,10 @@
-package fcfs
+package driver
 
 import (
 	"fmt"
-	"vazmin.github.io/fastcfs-csi/pkg/common"
 	"math"
 	"testing"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
 )
 
 func TestCapacity(t *testing.T) {
