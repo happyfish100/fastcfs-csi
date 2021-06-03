@@ -1,0 +1,210 @@
+# Controller Service
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: fcfs-csi-controller
+  labels:
+    {{- include "fcfs-csi-driver.labels" . | nindent 4 }}
+spec:
+  replicas: {{ default .Values.replicaCount .Values.controller.replicaCount }}
+  selector:
+    matchLabels:
+      app: fcfs-csi-controller
+      {{- include "fcfs-csi-driver.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: fcfs-csi-controller
+        {{- include "fcfs-csi-driver.labels" . | nindent 8 }}
+        {{- if .Values.controller.podLabels }}
+        {{- toYaml .Values.controller.podlabels | nindent 8 }}
+        {{- end }}
+      {{- if .Values.controller.podAnnotations }}
+      annotations:
+        {{- toYaml .Values.controller.podAnnotations | nindent 8 }}
+      {{- else if .Values.podAnnotations}}
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      {{- end }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+        {{- with default .Values.nodeSelector .Values.controller.nodeSelector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      serviceAccountName: {{ .Values.serviceAccount.controller.name }}
+      priorityClassName: {{ default .Values.priorityClassName .Values.controller.priorityClassName }}
+      {{- with default .Values.affinity .Values.controller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      containers:
+        - name: fcfs-plugin
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --controller-server=true
+            - --endpoint=$(CSI_ENDPOINT)
+            - "--drivername={{ .Values.driverName }}"
+            - "--nodeid=$(CSI_NODE_NAME)"
+            - --logtostderr
+            - --v=4
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            {{- if .Values.controller.extraVars }}
+            {{- range $key, $val :=  .Values.controller.extraVars }}
+            - name: {{ $key }}
+              value: "{{ $val }}"
+            {{- end }}
+            {{- end }}
+            {{- if .Values.proxy.http_proxy }}
+            {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.controller.env.ebsPlugin }}
+            {{- . | toYaml | nindent 12 }}
+            {{- end }}
+          securityContext:
+            privileged: true
+            capabilities:
+              add: [ "SYS_ADMIN" ]
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /var/lib/kubelet/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: /dev
+              name: dev-dir
+            - mountPath: /etc/fcfs-csi-config/
+              name: fcfs-csi-config
+            - mountPath: /tmp/csi/keys
+              name: keys-tmp-dir
+          ports:
+            - name: healthz
+              containerPort: 9808
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+        - name: csi-provisioner
+          image: {{ printf "%s:%s" .Values.sidecars.provisionerImage.repository .Values.sidecars.provisionerImage.tag }}
+          args:
+            - --csi-address=$(ADDRESS)
+            - --v=5
+            - --feature-gates=Topology=true
+            {{- if or .Values.controller.extraCreateMetadata .Values.extraCreateMetadata }}
+            - --extra-create-metadata
+            {{- end}}
+            - --leader-election=true
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            {{- if .Values.proxy.http_proxy }}
+            {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.controller.env.provisioner }}
+            {{- . | toYaml | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-attacher
+          image: {{ printf "%s:%s" .Values.sidecars.attacherImage.repository .Values.sidecars.attacherImage.tag }}
+          args:
+            - --csi-address=$(ADDRESS)
+            - --v=5
+            - --leader-election=true
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            {{- if .Values.proxy.http_proxy }}
+            {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.controller.env.attacher }}
+            {{- . | toYaml | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-resizer
+          image: {{ printf "%s:%s" .Values.sidecars.resizerImage.repository .Values.sidecars.resizerImage.tag }}
+          imagePullPolicy: Always
+          args:
+            - --csi-address=$(ADDRESS)
+            - --v=5
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            {{- if .Values.proxy.http_proxy }}
+            {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.controller.env.resizer }}
+            {{- . | toYaml | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi/
+        - name: liveness-probe
+          image: {{ printf "%s:%s" .Values.sidecars.livenessProbeImage.repository .Values.sidecars.livenessProbeImage.tag }}
+          args:
+            - --csi-address=/csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- range .Values.imagePullSecrets }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins
+            type: Directory
+          name: plugins-dir
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: dev-dir
+        - name: fcfs-csi-config
+          configMap:
+            name: fcfs-csi-config
+        - name: keys-tmp-dir
+          emptyDir: {
+            medium: "Memory"
+          }

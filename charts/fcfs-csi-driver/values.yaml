@@ -1,0 +1,168 @@
+# Default values for charts.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: vazmin/csi-fcfsplugin
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "canary"
+
+sidecars:
+  provisionerImage:
+    repository: k8s.gcr.io/sig-storage/csi-provisioner
+    tag: "v2.1.1"
+  attacherImage:
+    repository: k8s.gcr.io/sig-storage/csi-attacher
+    tag: "v3.1.0"
+  snapshotterImage:
+    repository: k8s.gcr.io/sig-storage/csi-snapshotter
+    tag: "v3.0.3"
+  livenessProbeImage:
+    repository: k8s.gcr.io/sig-storage/livenessprobe
+    tag: "v2.2.0"
+  resizerImage:
+    repository: k8s.gcr.io/sig-storage/csi-resizer
+    tag: "v1.0.0"
+  nodeDriverRegistrarImage:
+    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
+    tag: "v2.1.0"
+
+
+proxy:
+  http_proxy:
+  no_proxy:
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Moving to values under controller
+priorityClassName: "system-cluster-critical"
+
+controller:
+  affinity: {}
+  # True if enable volume scheduling for dynamic volume provisioning
+  env:
+    provisioner: []
+    attacher: []
+    snapshotter: []
+    resizer: []
+  # If set, add pv/pvc metadata to plugin create requests as parameters.
+  extraCreateMetadata: false
+  # Will be removed in later version in favor of env.ebsPlugin
+  extraVars: {}
+  # Extra volume tags to attach to each dynamically provisioned volume.
+  # ---
+  # extraVolumeTags:
+  #   key1: value1
+  #   key2: value2
+  extraVolumeTags: {}
+  httpEndpoint:
+  # ID of the Kubernetes cluster used for tagging provisioned EBS volumes (optional).
+  k8sTagClusterId:
+  nodeSelector: {}
+  podAnnotations: {}
+  podLabels: {}
+  priorityClassName:
+
+serviceAccount:
+  controller:
+    create: true # A service account will be created for you if set to true. Set to false if you want to use your own.
+    name: fcfs-csi-controller-sa # Name of the service-account to be used/created.
+    annotations: {}
+  node:
+    create: true
+    name: fcfs-csi-node-sa
+    annotations: {}
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+topology:
+  # Specifies whether topology based provisioning support should
+  # be exposed by CSI
+  enabled: false
+  # domainLabels define which node labels to use as domains
+  # for CSI nodeplugins to advertise their domains
+  # NOTE: the value here serves as an example and needs to be
+  # updated with node labels that define domains of interest
+  domainLabels:
+    - failure-domain/region
+    - failure-domain/zone
+
+# The filename of the provisioner socket
+provisionerSocketFile: csi-provisioner.sock
+# The filename of the plugin socket
+pluginControllerSocketFile: csi-controller.sock
+# The filename of the plugin socket
+pluginNodeSocketFile: csi-node.sock
+# The filename of the plugin socket
+pluginFcfsFusedProxySocketFile: fcfsfused-proxy.sock
+# kubelet working directory,can be set using `--root-dir` when starting kubelet.
+kubeletDir: /var/lib/kubelet
+# Name of the csi-driver
+driverName: fcfs.csi.vazmin.github.io
+# Name of the configmap used for state
+configMapName: fcfs-csi-config
+# Key to use in the Configmap if not config.json
+# configMapKey:
+# Use an externally provided configmap
+externallyManagedConfigmap: false
