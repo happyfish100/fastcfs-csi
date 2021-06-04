@@ -16,6 +16,7 @@ CSI_IMAGE_VERSION=$(shell . $(CURDIR)/build.env ; echo $${CSI_IMAGE_VERSION})
 CSI_IMAGE=$(CSI_IMAGE_NAME):$(CSI_IMAGE_VERSION)
 
 GO_PROJECT=vazmin.github.io/fastcfs-csi
+GOOS=$(shell go env GOOS)
 
 ifndef REV
 # Revision that gets built into each binary via the main.version
@@ -95,3 +96,28 @@ uninstall-fcfsfused-proxy:
 
 clean:
 	-rm -rf ${BIN_OUTPUT}
+
+
+bin /tmp/helm /tmp/kubeval:
+	@mkdir -p $@
+
+bin/helm: | /tmp/helm bin
+	@curl -o /tmp/helm/helm.tar.gz -sSL https://get.helm.sh/helm-v3.6.0-${GOOS}-amd64.tar.gz
+	@tar -zxf /tmp/helm/helm.tar.gz -C bin --strip-components=1
+	@rm -rf /tmp/helm/*
+
+
+BASE_YAML = csiplugin-configmap.yaml
+KUBE_YAML = csidriver.yaml controller.yaml node.yaml
+RBAC_YAML = clusterrole-attacher.yaml clusterrole-csi-node.yaml clusterrole-provisioner.yaml clusterrole-resizer.yaml \
+			clusterrolebinding-attacher.yaml clusterrolebinding-csi-node.yaml clusterrolebinding-provisioner.yaml clusterrolebinding-resizer.yaml \
+			poddisruptionbudget-controller.yaml serviceaccount-csi-controller.yaml serviceaccount-csi-node.yaml
+
+.PHONY: generate-kustomize
+
+# if `WARNING: Kubernetes configuration file is group-readable. This is insecure.`
+# exec `chmod go-r ~/.kube/config`
+generate-kustomize: $(BASE_YAML) $(KUBE_YAML) $(RBAC_YAML)
+
+%.yaml:
+	cd charts/fcfs-csi-driver && ../../bin/helm template kustomize . -s templates/$@ > ../../deploy/kubernetes/base/$@

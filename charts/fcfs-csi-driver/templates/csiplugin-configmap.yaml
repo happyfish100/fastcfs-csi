@@ -1,0 +1,11 @@
+{{- if not .Values.externallyManagedConfigmap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.configMapName | quote }}
+  labels:
+    {{- include "fcfs-csi-driver.selectorLabels" . | nindent 4 }}
+data:
+  config.json: |-
+{{ toJson .Values.csiConfig | indent 4 -}}
+{{- end }}

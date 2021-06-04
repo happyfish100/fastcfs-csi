@@ -38,7 +38,6 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-
       containers:
         - name: fcfs-plugin
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -48,11 +47,10 @@ spec:
             - --endpoint=$(CSI_ENDPOINT)
             - "--drivername={{ .Values.driverName }}"
             - "--nodeid=$(CSI_NODE_NAME)"
-            - --logtostderr
             - --v=4
           env:
             - name: CSI_ENDPOINT
-              value: unix:///csi/csi.sock
+              value: {{ printf "unix://csi/%s" .Values.controller.socketFile }}
             - name: CSI_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -67,7 +65,7 @@ spec:
             {{- if .Values.proxy.http_proxy }}
             {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
             {{- end }}
-            {{- with .Values.controller.env.ebsPlugin }}
+            {{- with .Values.controller.env.fcfsPlugin }}
             {{- . | toYaml | nindent 12 }}
             {{- end }}
           securityContext:
@@ -109,6 +107,10 @@ spec:
             timeoutSeconds: 3
             periodSeconds: 10
             failureThreshold: 5
+          {{- with default .Values.resources (default .Values.controller.resources .Values.controller.containerResources.fcfsPlugin) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         - name: csi-provisioner
           image: {{ printf "%s:%s" .Values.sidecars.provisionerImage.repository .Values.sidecars.provisionerImage.tag }}
           args:
@@ -121,7 +123,7 @@ spec:
             - --leader-election=true
           env:
             - name: ADDRESS
-              value: /csi/csi.sock
+              value: {{ printf "/csi/%s" .Values.controller.socketFile }}
             {{- if .Values.proxy.http_proxy }}
             {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
             {{- end }}
@@ -131,6 +133,10 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
+          {{- with default .Values.resources (default .Values.controller.resources .Values.controller.containerResources.provisioner) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         - name: csi-attacher
           image: {{ printf "%s:%s" .Values.sidecars.attacherImage.repository .Values.sidecars.attacherImage.tag }}
           args:
@@ -139,7 +145,7 @@ spec:
             - --leader-election=true
           env:
             - name: ADDRESS
-              value: /csi/csi.sock
+              value: {{ printf "/csi/%s" .Values.controller.socketFile }}
             {{- if .Values.proxy.http_proxy }}
             {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
             {{- end }}
@@ -149,6 +155,10 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
+          {{- with default .Values.resources (default .Values.controller.resources .Values.controller.containerResources.attacher) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         - name: csi-resizer
           image: {{ printf "%s:%s" .Values.sidecars.resizerImage.repository .Values.sidecars.resizerImage.tag }}
           imagePullPolicy: Always
@@ -157,7 +167,7 @@ spec:
             - --v=5
           env:
             - name: ADDRESS
-              value: /csi/csi.sock
+              value: {{ printf "/csi/%s" .Values.controller.socketFile }}
             {{- if .Values.proxy.http_proxy }}
             {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
             {{- end }}
@@ -167,13 +177,24 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /csi/
+          {{- with default .Values.resources (default .Values.controller.resources .Values.controller.containerResources.resizer) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         - name: liveness-probe
           image: {{ printf "%s:%s" .Values.sidecars.livenessProbeImage.repository .Values.sidecars.livenessProbeImage.tag }}
           args:
-            - --csi-address=/csi/csi.sock
+            - --csi-address=$(ADDRESS)
+          env:
+            - name: ADDRESS
+              value: {{ printf "/csi/%s" .Values.controller.socketFile }}
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
+          {{- with default .Values.resources (default .Values.controller.resources .Values.controller.containerResources.liveness) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
       {{- range .Values.imagePullSecrets }}
@@ -181,20 +202,20 @@ spec:
       {{- end }}
       {{- end }}
       volumes:
-        - hostPath:
-            path: /var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io
+        - name: socket-dir
+          hostPath:
+            path: {{ printf "%s/plugins/%s/" (trimSuffix "/" .Values.controller.kubeletPath) .Values.driverName }}
             type: DirectoryOrCreate
-          name: socket-dir
         - hostPath:
             path: /var/lib/kubelet/pods
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
-            path: /var/lib/kubelet/plugins_registry
+            path: {{ printf "%s/plugins_registry/" (trimSuffix "/" .Values.controller.kubeletPath) }}
             type: Directory
           name: registration-dir
         - hostPath:
-            path: /var/lib/kubelet/plugins
+            path: {{ printf "%s/plugins/" (trimSuffix "/" .Values.controller.kubeletPath) }}
             type: Directory
           name: plugins-dir
         - hostPath:
@@ -203,7 +224,7 @@ spec:
           name: dev-dir
         - name: fcfs-csi-config
           configMap:
-            name: fcfs-csi-config
+            name: {{ .Values.configMapName }}
         - name: keys-tmp-dir
           emptyDir: {
             medium: "Memory"

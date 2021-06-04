@@ -1,0 +1,157 @@
+---
+# Source: fcfs-csi-driver/templates/controller.yaml
+# Controller Service
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: fcfs-csi-controller
+  labels:
+    app.kubernetes.io/name: fcfs-csi-driver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fcfs-csi-controller
+      app.kubernetes.io/name: fcfs-csi-driver
+  template:
+    metadata:
+      labels:
+        app: fcfs-csi-controller
+        app.kubernetes.io/name: fcfs-csi-driver
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      serviceAccountName: fcfs-csi-controller-sa
+      priorityClassName: system-cluster-critical
+      containers:
+        - name: fcfs-plugin
+          image: vazmin/csi-fcfsplugin:canary
+          imagePullPolicy: IfNotPresent
+          args:
+            - --controller-server=true
+            - --endpoint=$(CSI_ENDPOINT)
+            - "--drivername=fcfs.csi.vazmin.github.io"
+            - "--nodeid=$(CSI_NODE_NAME)"
+            - --v=4
+          env:
+            - name: CSI_ENDPOINT
+              value: unix://csi/csi-controller.sock
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          securityContext:
+            privileged: true
+            capabilities:
+              add: [ "SYS_ADMIN" ]
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /var/lib/kubelet/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: /dev
+              name: dev-dir
+            - mountPath: /etc/fcfs-csi-config/
+              name: fcfs-csi-config
+            - mountPath: /tmp/csi/keys
+              name: keys-tmp-dir
+          ports:
+            - name: healthz
+              containerPort: 9808
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+        - name: csi-provisioner
+          image: k8s.gcr.io/sig-storage/csi-provisioner:v2.1.1
+          args:
+            - --csi-address=$(ADDRESS)
+            - --v=5
+            - --feature-gates=Topology=true
+            - --leader-election=true
+          env:
+            - name: ADDRESS
+              value: /csi/csi-controller.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-attacher
+          image: k8s.gcr.io/sig-storage/csi-attacher:v3.1.0
+          args:
+            - --csi-address=$(ADDRESS)
+            - --v=5
+            - --leader-election=true
+          env:
+            - name: ADDRESS
+              value: /csi/csi-controller.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-resizer
+          image: k8s.gcr.io/sig-storage/csi-resizer:v1.0.0
+          imagePullPolicy: Always
+          args:
+            - --csi-address=$(ADDRESS)
+            - --v=5
+          env:
+            - name: ADDRESS
+              value: /csi/csi-controller.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi/
+        - name: liveness-probe
+          image: k8s.gcr.io/sig-storage/livenessprobe:v2.2.0
+          args:
+            - --csi-address=$(ADDRESS)
+          env:
+            - name: ADDRESS
+              value: /csi/csi-controller.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/fcfs.csi.vazmin.github.io/
+            type: DirectoryOrCreate
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins/
+            type: Directory
+          name: plugins-dir
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: dev-dir
+        - name: fcfs-csi-config
+          configMap:
+            name: fcfs-csi-config
+        - name: keys-tmp-dir
+          emptyDir: {
+            medium: "Memory"
+          }

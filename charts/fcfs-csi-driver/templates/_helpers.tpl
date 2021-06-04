@@ -36,13 +36,6 @@ Common labels
 */}}
 {{- define "fcfs-csi-driver.labels" -}}
 {{ include "fcfs-csi-driver.selectorLabels" . }}
-{{- if ne .Release.Name "kustomize" }}
-helm.sh/chart: {{ include "fcfs-csi-driver.chart" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end }}
 {{- end -}}
 
 {{/*
@@ -50,9 +43,6 @@ Common selector labels
 */}}
 {{- define "fcfs-csi-driver.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "fcfs-csi-driver.name" . }}
-{{- if ne .Release.Name "kustomize" }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
 {{- end -}}
 
 {{/*
