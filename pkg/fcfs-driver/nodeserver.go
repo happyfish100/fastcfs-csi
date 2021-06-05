@@ -36,7 +36,6 @@ type nodeServer struct {
 	mountOptions *fcfs.MountOptions
 	mounter      Mounter
 	volumeLocks  *common.VolumeLocks
-	topology     map[string]string
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
@@ -76,14 +75,10 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 
 	mountOptions := &fcfs.MountOptionsSecrets{
 		MountOptions: ns.mountOptions,
-		Secrets: request.Secrets,
+		Secrets:      request.Secrets,
 	}
-	// TODO
-	if mountOptions.EnableFcfsFusedProxy {
-		_, err = fcfs.MountFcfsFusedWithProxy(ctx, volOptions, mountOptions)
-	} else {
-		err = fcfs.FuseMount(ctx, volOptions, cr)
-	}
+
+	err = ns.mounter.FcfsMount(ctx, volOptions, mountOptions, cr)
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "[FcfsCFS] fuse mount err %v", err)
@@ -305,7 +300,7 @@ func (ns *nodeServer) NodeGetInfo(ctx context.Context, request *csi.NodeGetInfoR
 		NodeId:            ns.Driver.NodeID,
 		MaxVolumesPerNode: ns.Driver.MaxVolumesPerNode,
 		AccessibleTopology: &csi.Topology{
-			Segments: ns.topology,
+			Segments: ns.Driver.Topology,
 		},
 	}, nil
 }
@@ -350,4 +345,3 @@ func IsCorruptedDir(dir string) bool {
 	_, pathErr := mount.PathExists(dir)
 	return pathErr != nil && mount.IsCorruptedMnt(pathErr)
 }
-

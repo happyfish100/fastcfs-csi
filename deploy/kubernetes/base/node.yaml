@@ -33,12 +33,15 @@ spec:
         - name: fcfs-plugin
           securityContext:
             privileged: true
-          image: vazmin/csi-fcfsplugin:canary
+            capabilities:
+              add: [ "SYS_ADMIN" ]
+          image: vazmin/fcfs-csi:canary
           args:
             - --node-server=true
             - --endpoint=$(CSI_ENDPOINT)
             - --nodeid=$(CSI_NODE_NAME)
             - --v=4
+            - "--domain-labels=kubernetes.io/hostname"
           env:
             - name: CSI_ENDPOINT
               value: unix://csi/csi.sock
@@ -54,6 +57,10 @@ spec:
               mountPath: /csi
             - name: device-dir
               mountPath: /dev
+            - mountPath: /etc/fcfs-csi-config/
+              name: fcfs-csi-config
+            - mountPath: /tmp/csi/keys
+              name: keys-tmp-dir
           ports:
             - name: healthz
               containerPort: 9808
@@ -113,3 +120,10 @@ spec:
           hostPath:
             path: /dev
             type: Directory
+        - name: fcfs-csi-config
+          configMap:
+            name: fcfs-csi-config
+        - name: keys-tmp-dir
+          emptyDir: {
+            medium: "Memory"
+          }

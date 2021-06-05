@@ -33,7 +33,6 @@ const (
 	labelSeparator string = ","
 )
 
-
 func GetTopologyFromParams(params map[string]string, requirement *csi.TopologyRequirement) map[string]string {
 	domainLabels, exists := params["domainLabels"]
 	if !exists {
@@ -75,8 +74,8 @@ func parseDomainLabels(domainLabels string) []string {
 // GetTopologyFromDomainLabels returns the CSI topology map, determined from
 // the domain labels and their values from the CO system
 // Expects domainLabels in arg to be in the format "[prefix/]<name>,[prefix/]<name>,...",.
-func GetTopologyFromDomainLabels(nodeLabels map[string]string, domainLabels, driverName string) (map[string]string, error) {
-	if domainLabels == "" {
+func GetTopologyFromDomainLabels(nodeLabels map[string]string, labelsToRead []string, driverName string) (map[string]string, error) {
+	if len(labelsToRead) == 0 {
 		return nil, nil
 	}
 
@@ -88,8 +87,6 @@ func GetTopologyFromDomainLabels(nodeLabels map[string]string, domainLabels, dri
 	}
 	// driverName is validated, and we are adding a lowercase "topology." to it, so no validation for conformance
 
-	// Convert passed in labels to a map, and check for uniqueness
-	labelsToRead := parseDomainLabels(domainLabels)
 	klog.V(4).Infof("passed in node labels for processing: %+v", labelsToRead)
 
 	labelsIn := make(map[string]bool)
@@ -142,6 +139,3 @@ func GetTopologyFromDomainLabels(nodeLabels map[string]string, domainLabels, dri
 
 	return topology, nil
 }
-
-
-

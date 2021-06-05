@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- clusterrole-attacher.yaml
+- clusterrole-csi-node.yaml
+- clusterrole-provisioner.yaml
+- clusterrole-resizer.yaml
+- clusterrolebinding-attacher.yaml
+- clusterrolebinding-csi-node.yaml
+- clusterrolebinding-provisioner.yaml
+- clusterrolebinding-resizer.yaml
+- controller.yaml
+- csidriver.yaml
+- node.yaml
+- poddisruptionbudget-controller.yaml
+- serviceaccount-csi-controller.yaml
+- serviceaccount-csi-node.yaml

@@ -16,10 +16,6 @@ limitations under the License.
 
 package common
 
-var (
-	DriverVersion string
-)
-
 const (
 	KiB = 1024
 	MiB = KiB * 1024
@@ -36,4 +32,8 @@ const (
 	PoolConfigFile       = "/fastcfs/auth/client.conf"
 	FuseClientCMD        = "/usr/bin/fcfs_fused"
 	FuseClientConfigFile = "/fastcfs/fcfs/fuse.conf"
+)
+
+const (
+	DefaultCSIEndpoint = "unix://tmp/csi.sock"
 )

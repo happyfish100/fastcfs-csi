@@ -8,18 +8,18 @@ import (
 	utilexec "k8s.io/utils/exec"
 	"strings"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
+	"vazmin.github.io/fastcfs-csi/pkg/fcfs"
 )
 
 type Mounter interface {
 	// Interface Implemented by NodeMounter.SafeFormatAndMount
 	mountutils.Interface
-	FormatAndMount(source string, target string, fstype string, options []string) error
-	CleanupMountPoint()
 	// Interface Implemented by NodeMounter.SafeFormatAndMount.Exec
 	utilexec.Interface
 
 	MakeDir(path string) error
 	PathExists(path string) (bool, error)
+	FcfsMount(ctx context.Context, volOptions *fcfs.VolumeOptions, mountOptions *fcfs.MountOptionsSecrets, cr *common.Credentials) error
 }
 
 type NodeMounter struct {
@@ -27,12 +27,29 @@ type NodeMounter struct {
 	utilexec.Interface
 }
 
-func (n NodeMounter) MakeDir(path string) error {
+func newNodeMounter() (Mounter, error) {
+	safeMounter := &mountutils.SafeFormatAndMount{
+		Interface: mountutils.New(""),
+		Exec:      utilexec.New(),
+	}
+	return &NodeMounter{*safeMounter, safeMounter.Exec}, nil
+}
+
+func (n *NodeMounter) MakeDir(path string) error {
 	return common.MakeDir(path)
 }
 
-func (n NodeMounter) PathExists(path string) (bool, error) {
+func (n *NodeMounter) PathExists(path string) (bool, error) {
 	panic("implement me")
+}
+
+func (n *NodeMounter) FcfsMount(ctx context.Context, volOptions *fcfs.VolumeOptions, mountOptions *fcfs.MountOptionsSecrets, cr *common.Credentials) error {
+	if mountOptions.EnableFcfsFusedProxy {
+		_, err := fcfs.MountFcfsFusedWithProxy(ctx, volOptions, mountOptions)
+		return err
+	} else {
+		return fcfs.FuseMount(ctx, volOptions, cr)
+	}
 }
 
 func bindMount(ctx context.Context, from, to string, mntOptions []string) error {

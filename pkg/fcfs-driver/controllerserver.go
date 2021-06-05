@@ -35,7 +35,7 @@ var (
 
 type controllerServer struct {
 	*csicommon.DefaultControllerServer
-	cfs fcfs.Cfs
+	cfs         fcfs.Cfs
 	volumeLocks *common.VolumeLocks
 }
 
@@ -45,12 +45,9 @@ func NewControllerServer(d *csicommon.CSIDriver) (*controllerServer, error) {
 	return &controllerServer{
 		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
 		volumeLocks:             common.NewVolumeLocks(),
-		cfs: cfsSrv,
+		cfs:                     cfsSrv,
 	}, nil
 }
-
-
-
 
 // CreateVolume create volume
 func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (resp *csi.CreateVolumeResponse, finalErr error) {
@@ -96,7 +93,10 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	exists, _ := cs.cfs.VolumeExists(ctx, volOptions.BaseConfigURL, volOptions.VolName, cr)
+	exists, err := cs.cfs.VolumeExists(ctx, volOptions.BaseConfigURL, volOptions.VolName, cr)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to create FcfsVolume %v: %q", volOptions.VolID, err)
+	}
 	// TODO if exists to check capacity
 	//	if exVol.VolSize < capacity {
 	//		return nil, status.Errorf(codes.AlreadyExists, "Volume with the same name: %s but with different size already exist", req.GetName())
@@ -104,7 +104,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	if !exists {
 		_, createErr := cs.cfs.CreateVolume(ctx, volOptions, cr)
 		if createErr != nil {
-			return nil, status.Errorf(codes.Internal, "failed to create FcfsVolume %v: %w", volOptions.VolID, createErr)
+			return nil, status.Errorf(codes.Internal, "failed to create FcfsVolume %v: %q", volOptions.VolID, createErr)
 		}
 		klog.V(4).Infof("created FcfsVolume %s at path %s", volOptions.VolID, volOptions.VolPath)
 	}
@@ -112,10 +112,10 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	// VolumeContentSource. Not yet supported VolumeSnapshot and PersistentVolumeClaim Cloning
 
 	csiVol := &csi.Volume{
-		VolumeId:           volOptions.VolID,
-		CapacityBytes:      common.RoundOffBytes(req.GetCapacityRange().GetRequiredBytes()),
-		VolumeContext:      req.GetParameters(),
-		ContentSource:      req.GetVolumeContentSource(),
+		VolumeId:      volOptions.VolID,
+		CapacityBytes: common.RoundOffBytes(req.GetCapacityRange().GetRequiredBytes()),
+		VolumeContext: req.GetParameters(),
+		ContentSource: req.GetVolumeContentSource(),
 	}
 	topologies := common.GetTopologyFromParams(req.GetParameters(), req.GetAccessibilityRequirements())
 	if topologies != nil {
@@ -162,7 +162,7 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if err := cs.cfs.DeleteVolume(ctx, vol, cr); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to delete FcfsVolume %v: %w", volID, err)
+		return nil, status.Errorf(codes.Internal, "failed to delete FcfsVolume %v: %v", volID, err)
 	}
 	klog.V(4).Infof("FcfsVolume %v successfully deleted", volID)
 

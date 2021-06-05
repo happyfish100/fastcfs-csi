@@ -19,8 +19,6 @@ package driver
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/klog/v2"
-	"k8s.io/mount-utils"
-	utilexec "k8s.io/utils/exec"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
 	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
 	"vazmin.github.io/fastcfs-csi/pkg/fcfs"
@@ -55,21 +53,21 @@ func NewIdentityServer(d *csicommon.CSIDriver) *identityServer {
 	}
 }
 
-
 func NewNodeServer(d *csicommon.CSIDriver, enableFcfsFusedProxy bool, fcfsFusedEndpoint string, fcfsFusedProxyConnTimout int, topology map[string]string) *nodeServer {
 	mountOptions := &fcfs.MountOptions{
 		EnableFcfsFusedProxy:     enableFcfsFusedProxy,
 		FcfsFusedEndpoint:        fcfsFusedEndpoint,
 		FcfsFusedProxyConnTimout: fcfsFusedProxyConnTimout,
 	}
+	nodeMounter, err := newNodeMounter()
+	if err != nil {
+		panic(err)
+	}
 	return &nodeServer{
 		DefaultNodeServer: csicommon.NewDefaultNodeServer(d, topology),
-		mounter: &mount.SafeFormatAndMount{
-			Interface: mount.New(""),
-			Exec:      utilexec.New(),
-		},
-		volumeLocks: common.NewVolumeLocks(),
-		mountOptions: mountOptions,
+		mounter:           nodeMounter,
+		volumeLocks:       common.NewVolumeLocks(),
+		mountOptions:      mountOptions,
 	}
 }
 
@@ -100,11 +98,12 @@ func (fc *fcfsDriver) Run(conf *common.Config) {
 	if err != nil {
 		klog.Fatalln("Failed GetTopologyFromDomainLabels, %v, %q", err, conf.NodeID)
 	}
+	klog.V(4).Infof("topology form domain labels: %q", topology)
 
 	both := !conf.IsControllerServer && !conf.IsNodeServer
 	fc.ids = NewIdentityServer(fc.driver)
 	if conf.IsControllerServer || both {
-		fc.cs , err = NewControllerServer(fc.driver)
+		fc.cs, err = NewControllerServer(fc.driver)
 		if err != nil {
 			klog.Fatalln("Failed New Controller Server, %v, %q", err, conf.NodeID)
 		}

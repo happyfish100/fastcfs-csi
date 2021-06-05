@@ -45,8 +45,7 @@ spec:
           args:
             - --controller-server=true
             - --endpoint=$(CSI_ENDPOINT)
-            - "--drivername={{ .Values.driverName }}"
-            - "--nodeid=$(CSI_NODE_NAME)"
+            - --nodeid=$(CSI_NODE_NAME)
             - --v=4
           env:
             - name: CSI_ENDPOINT

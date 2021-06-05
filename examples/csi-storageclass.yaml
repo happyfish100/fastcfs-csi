@@ -18,6 +18,6 @@ parameters:
   csi.storage.k8s.io/node-publish-secret-name: csi-fcfs-secret
   csi.storage.k8s.io/node-publish-secret-namespace: default
 
-  clusterID: myClusterID
+  clusterID: virtual-cluster-id-1
 
-#  domainLabels: ""
+  domainLabels: ""

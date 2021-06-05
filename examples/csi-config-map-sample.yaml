@@ -7,7 +7,7 @@ data:
   config.json: |-
     [
       {
-        "clusterID": "myClusterID",
+        "clusterID": "virtual-cluster-id-1",
         "configURL": "http://192.168.99.170:8080"
       }
     ]

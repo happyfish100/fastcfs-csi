@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/name: fcfs-csi-driver
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: fcfs-csi-controller
@@ -25,13 +25,12 @@ spec:
       priorityClassName: system-cluster-critical
       containers:
         - name: fcfs-plugin
-          image: vazmin/csi-fcfsplugin:canary
+          image: vazmin/fcfs-csi:canary
           imagePullPolicy: IfNotPresent
           args:
             - --controller-server=true
             - --endpoint=$(CSI_ENDPOINT)
-            - "--drivername=fcfs.csi.vazmin.github.io"
-            - "--nodeid=$(CSI_NODE_NAME)"
+            - --nodeid=$(CSI_NODE_NAME)
             - --v=4
           env:
             - name: CSI_ENDPOINT

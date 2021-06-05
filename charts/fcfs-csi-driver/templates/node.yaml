@@ -45,6 +45,8 @@ spec:
         - name: fcfs-plugin
           securityContext:
             privileged: true
+            capabilities:
+              add: [ "SYS_ADMIN" ]
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           args:
             - --node-server=true
@@ -54,6 +56,9 @@ spec:
             {{- end }}
             - --nodeid=$(CSI_NODE_NAME)
             - --v=4
+            {{- if .Values.topology.enabled }}
+            - "--domain-labels={{ .Values.topology.domainLabels | join "," }}"
+            {{- end }}
           env:
             - name: CSI_ENDPOINT
               value: {{ printf "unix://csi/%s" .Values.node.socketFile }}
@@ -72,6 +77,10 @@ spec:
               mountPath: /csi
             - name: device-dir
               mountPath: /dev
+            - mountPath: /etc/fcfs-csi-config/
+              name: fcfs-csi-config
+            - mountPath: /tmp/csi/keys
+              name: keys-tmp-dir
           ports:
             - name: healthz
               containerPort: 9808
@@ -155,3 +164,10 @@ spec:
           hostPath:
             path: /dev
             type: Directory
+        - name: fcfs-csi-config
+          configMap:
+            name: {{ .Values.configMapName }}
+        - name: keys-tmp-dir
+          emptyDir: {
+            medium: "Memory"
+          }
