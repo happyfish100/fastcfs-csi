@@ -32,8 +32,8 @@ var (
 
 func initFlag() {
 
-	flag.StringVar(&conf.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	flag.StringVar(&conf.DriverName, "driver-name", "fcfs.csi.vazmin.github.io", "name of the driver")
+	flag.StringVar(&conf.Endpoint, "endpoint", common.DefaultCSIEndpoint, "CSI endpoint")
+	flag.StringVar(&conf.DriverName, "driver-name", common.DefaultDriverName, "name of the driver")
 	flag.StringVar(&conf.NodeID, "nodeid", "", "node id")
 	flag.BoolVar(&conf.Ephemeral, "ephemeral", false, "publish volumes in ephemeral mode even if kubelet did not ask for it (only needed for Kubernetes 1.15)")
 	flag.Int64Var(&conf.MaxVolumesPerNode, "max-volumes-per-node", 0, "limit of volumes per node")

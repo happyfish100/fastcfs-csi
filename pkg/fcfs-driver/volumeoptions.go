@@ -3,7 +3,9 @@ package driver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"strconv"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
 	"vazmin.github.io/fastcfs-csi/pkg/fcfs"
 )
@@ -36,7 +38,6 @@ import (
 //	  r:  read only
 //	  w:  write only
 //	  rw: read and write
-
 
 func newVolumeOptions(ctx context.Context, req *csi.CreateVolumeRequest, requestName string, cr *common.Credentials) (*fcfs.VolumeOptions, error) {
 	parameters := req.GetParameters()
@@ -72,10 +73,10 @@ func newVolumeOptions(ctx context.Context, req *csi.CreateVolumeRequest, request
 	}, nil
 }
 
-func newVolOptionsFromVolID(volID string, cr *csi.CapacityRange) (*fcfs.VolumeOptions, error) {
+func NewVolOptionsFromVolID(volID string, cr *csi.CapacityRange) (*fcfs.VolumeOptions, error) {
 	cid := &common.CSIIdentifier{}
 	if err := cid.DecomposeCSIID(volID); err != nil {
-		return nil, err
+		return nil, common.ErrInvalidVolID
 	}
 
 	url, err := common.ConfigURL(common.CsiConfigFile, cid.ClusterID)
@@ -83,13 +84,53 @@ func newVolOptionsFromVolID(volID string, cr *csi.CapacityRange) (*fcfs.VolumeOp
 		return nil, err
 	}
 	vol := &fcfs.VolumeOptions{
-		VolName:   cid.VolName,
-		VolID:     volID,
-		ClusterID: cid.ClusterID,
+		VolName:       cid.VolName,
+		VolID:         volID,
+		ClusterID:     cid.ClusterID,
 		BaseConfigURL: url,
 	}
 	if cr != nil {
 		vol.CapacityBytes = cr.GetRequiredBytes()
 	}
+	return vol, nil
+}
+
+func NewVolOptionsFromStatic(volID string, options map[string]string) (*fcfs.VolumeOptions, error) {
+
+	var (
+		staticVol bool
+		err       error
+	)
+	val, ok := options["static"]
+	if !ok {
+		return nil, common.ErrNonStaticVolume
+	}
+
+	if staticVol, err = strconv.ParseBool(val); err != nil {
+		return nil, fmt.Errorf("failed to parse preProvisionedVolume: %w", err)
+	}
+
+	if !staticVol {
+		return nil, common.ErrNonStaticVolume
+	}
+
+	clusterID, ok := options["clusterID"]
+	if !ok {
+		return nil, errors.New("clusterID must be set")
+	}
+
+	url, err := common.ConfigURL(common.CsiConfigFile, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	vol := &fcfs.VolumeOptions{
+		VolName:        volID,
+		VolID:          volID,
+		ClusterID:      clusterID,
+		BaseConfigURL:  url,
+		PreProvisioned: staticVol,
+	}
+
 	return vol, nil
 }

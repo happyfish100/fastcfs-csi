@@ -9,10 +9,9 @@ endif
 all: build
 
 BIN_OUTPUT=bin
-FCFS_CSI_VERSION=$(shell . $(CURDIR)/build.env ; echo $${FCFS_CSI_VERSION})
 
+CSI_IMAGE_VERSION=v0.2.0
 CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),vazmin/fcfs-csi)
-CSI_IMAGE_VERSION=$(shell . $(CURDIR)/build.env ; echo $${CSI_IMAGE_VERSION})
 CSI_IMAGE=$(CSI_IMAGE_NAME):$(CSI_IMAGE_VERSION)
 
 PKG=vazmin.github.io/fastcfs-csi
@@ -55,12 +54,17 @@ $(CMDS:%=build-%): build-%:
 
 build: $(CMDS:%=build-%)
 
+.PHONY: image-csi
 # image-csi: GOARCH ?= $(shell go env GOARCH 2>/dev/null)
 image-csi: .container-cmd
-	$(CONTAINER_CMD) build -t $(CSI_IMAGE) -f deploy/image/Dockerfile .
+	$(CONTAINER_CMD) build -t $(CSI_IMAGE) .
 
 image-clean: .container-cmd
 	$(CONTAINER_CMD) image ls | grep $(CSI_IMAGE_VERSION) | grep $(CSI_IMAGE_NAME) | awk '{print $$3}' | xargs -r $(CONTAINER_CMD) image rm -f
+
+.container-cmd:
+	@test -n "$(shell which $(CONTAINER_CMD) 2>/dev/null)" || { echo "Missing container support, install Podman or Docker"; exit 1; }
+	@echo "$(CONTAINER_CMD)" > .container-cmd
 
 
 kind-load-image:
@@ -75,9 +79,7 @@ delete-plugin-po:
 local-deploy: image-clean build image-csi kind-load-image
 
 
-.container-cmd:
-	@test -n "$(shell which $(CONTAINER_CMD) 2>/dev/null)" || { echo "Missing container support, install Podman or Docker"; exit 1; }
-	@echo "$(CONTAINER_CMD)" > .container-cmd
+
 
 .PHONY: fcfsfused-proxy
 fcfsfused-proxy:
@@ -122,3 +124,20 @@ generate-kustomize: bin/helm $(BASE_YAML) $(KUBE_YAML) $(RBAC_YAML)
 
 %.yaml:
 	cd charts/fcfs-csi-driver && ../../bin/helm template kustomize . -s templates/$@ > ../../deploy/kubernetes/base/$@
+
+
+.PHONY: test-e2e-single-nn
+test-e2e-single-nn:
+	AVAILABILITY_NODE_NAME=kind-control-plane \
+	TEST_PATH=./tests/e2e/... \
+	GINKGO_FOCUS="\[fcfs-csi-e2e\] \[single-nn\]" \
+	FCFS_CONFIG_URL=http://192.168.99.180:8080 \
+	./hack/e2e/run.sh
+
+.PHONY: test-e2e-multi-nn
+test-e2e-multi-nn:
+	AVAILABILITY_NODE_NAME=kind-control-plane \
+	TEST_PATH=./tests/e2e/... \
+	GINKGO_FOCUS="\[fcfs-csi-e2e\] \[multi-nn\]" \
+	FCFS_CONFIG_URL=http://192.168.99.180:8080 \
+	./hack/e2e/run.sh

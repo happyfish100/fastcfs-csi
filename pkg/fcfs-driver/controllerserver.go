@@ -142,13 +142,6 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		return nil, err
 	}
 
-	cr, err := common.NewAdminCredentials(req.GetSecrets())
-	if err != nil {
-		klog.Errorf("failed to retrieve admin credentials: %v", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	defer cr.DeleteCredentials()
-
 	volID := req.GetVolumeId()
 
 	if acquired := cs.volumeLocks.TryAcquire(volID); !acquired {
@@ -157,10 +150,18 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	}
 	defer cs.volumeLocks.Release(volID)
 
-	vol, err := newVolOptionsFromVolID(volID, nil)
+	vol, err := NewVolOptionsFromVolID(volID, nil)
 	if err != nil {
+
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+
+	cr, err := common.NewAdminCredentials(req.GetSecrets())
+	if err != nil {
+		klog.Errorf("failed to retrieve admin credentials: %v", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	defer cr.DeleteCredentials()
 	if err := cs.cfs.DeleteVolume(ctx, vol, cr); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete FcfsVolume %v: %v", volID, err)
 	}
@@ -227,7 +228,7 @@ func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 	}
 	defer cr.DeleteCredentials()
 
-	vol, err := newVolOptionsFromVolID(volumeId, req.GetCapacityRange())
+	vol, err := NewVolOptionsFromVolID(volumeId, req.GetCapacityRange())
 	if err != nil {
 		klog.Errorf("failed to new volume %s: %v", volumeId, err)
 		return nil, status.Error(codes.Internal, err.Error())

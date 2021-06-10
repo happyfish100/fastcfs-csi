@@ -18,6 +18,7 @@ package driver
 
 import (
 	"context"
+	"errors"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -45,12 +46,6 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 
 	stagingTargetPath := request.GetStagingTargetPath()
 	volumeId := request.GetVolumeId()
-	cr, err := common.NewAdminCredentials(request.GetSecrets())
-	if err != nil {
-		klog.Errorf("failed to retrieve user credentials: %v", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	defer cr.DeleteCredentials()
 
 	if acquired := ns.volumeLocks.TryAcquire(volumeId); !acquired {
 		klog.Error(common.VolumeOperationAlreadyExistsFmt, volumeId)
@@ -67,7 +62,13 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
-	volOptions, err := newVolOptionsFromVolID(volumeId, nil)
+	volOptions, err := NewVolOptionsFromVolID(volumeId, nil)
+
+	if err != nil {
+		if errors.Is(err, common.ErrInvalidVolID) {
+			volOptions, err = NewVolOptionsFromStatic(volumeId, request.GetVolumeContext())
+		}
+	}
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "new FcfsVolume err %v", err)
 	}
@@ -78,7 +79,7 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 		Secrets:      request.Secrets,
 	}
 
-	err = ns.mounter.FcfsMount(ctx, volOptions, mountOptions, cr)
+	err = ns.mounter.FcfsMount(ctx, volOptions, mountOptions)
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "[FcfsCFS] fuse mount err %v", err)
@@ -112,7 +113,7 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 		// return nil, status.Errorf(codes.NotFound, "Volume not mounted %s", targetPath)
 	}
 
-	//vol, err := newVolOptionsFromVolID(volumeID, nil)
+	//vol, err := NewVolOptionsFromVolID(volumeID, nil)
 	//if err != nil {
 	//	return nil, status.Error(codes.Internal, err.Error())
 	//}
