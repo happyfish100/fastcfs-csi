@@ -15,7 +15,8 @@ CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),vazmin/fcfs-csi)
 CSI_IMAGE_VERSION=$(shell . $(CURDIR)/build.env ; echo $${CSI_IMAGE_VERSION})
 CSI_IMAGE=$(CSI_IMAGE_NAME):$(CSI_IMAGE_VERSION)
 
-GO_PROJECT=vazmin.github.io/fastcfs-csi
+PKG=vazmin.github.io/fastcfs-csi
+GOOS=$(shell go env GOOS)
 
 ifndef REV
 # Revision that gets built into each binary via the main.version
@@ -27,17 +28,18 @@ ifndef REV
 # some CI systems (like TravisCI, which pulls only 50 commits).
 REV=$(shell git describe --long --tags --match='v*' --dirty 2>/dev/null || git rev-list -n1 HEAD)
 endif
+GIT_COMMIT?=$(shell git rev-parse HEAD)
 
 # BUILD_PLATFORMS contains a set of <os> <arch> <suffix> triplets,
 # separated by semicolon. An empty variable or empty entry (= just a
 # semicolon) builds for the default platform of the current Go
 # toolchain.
 BUILD_PLATFORMS =
-
+BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Add go ldflags using LDFLAGS at the time of compilation.
 LDFLAGS ?=
 # CSI_IMAGE_VERSION will be considered as the driver version
-LDFLAGS += -X $(GO_PROJECT)/pkg/common.DriverVersion=$(REV)
+LDFLAGS += -X $(PKG)/pkg/common.DriverVersion=$(REV) -X ${PKG}/pkg/common.GitCommit=${GIT_COMMIT} -X ${PKG}/pkg/common.BuildDate=${BUILD_DATE}
 FULL_LDFLAGS = $(LDFLAGS) $(EXT_LDFLAGS)
 
 # This builds each command (= the sub-directories of ./cmd) for the target platform(s)
@@ -70,7 +72,7 @@ kind-clean:
 delete-plugin-po:
 	kubectl delete po csi-fcfsplugin-0
 
-local-deploy: image-clean build image-csi kind-load-image delete-plugin-po
+local-deploy: image-clean build image-csi kind-load-image
 
 
 .container-cmd:
@@ -95,3 +97,28 @@ uninstall-fcfsfused-proxy:
 
 clean:
 	-rm -rf ${BIN_OUTPUT}
+
+
+bin /tmp/helm /tmp/kubeval:
+	@mkdir -p $@
+
+bin/helm: | /tmp/helm bin
+	@curl -o /tmp/helm/helm.tar.gz -sSL https://get.helm.sh/helm-v3.6.0-${GOOS}-amd64.tar.gz
+	@tar -zxf /tmp/helm/helm.tar.gz -C bin --strip-components=1
+	@rm -rf /tmp/helm/*
+
+
+BASE_YAML = csiplugin-configmap.yaml
+KUBE_YAML = csidriver.yaml controller.yaml node.yaml
+RBAC_YAML = clusterrole-attacher.yaml clusterrole-csi-node.yaml clusterrole-provisioner.yaml clusterrole-resizer.yaml \
+			clusterrolebinding-attacher.yaml clusterrolebinding-csi-node.yaml clusterrolebinding-provisioner.yaml clusterrolebinding-resizer.yaml \
+			poddisruptionbudget-controller.yaml serviceaccount-csi-controller.yaml serviceaccount-csi-node.yaml
+
+.PHONY: generate-kustomize
+
+# if `WARNING: Kubernetes configuration file is group-readable. This is insecure.`
+# exec `chmod go-r ~/.kube/config`
+generate-kustomize: bin/helm $(BASE_YAML) $(KUBE_YAML) $(RBAC_YAML)
+
+%.yaml:
+	cd charts/fcfs-csi-driver && ../../bin/helm template kustomize . -s templates/$@ > ../../deploy/kubernetes/base/$@

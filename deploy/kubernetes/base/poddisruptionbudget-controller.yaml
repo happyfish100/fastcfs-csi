@@ -1,0 +1,14 @@
+---
+# Source: fcfs-csi-driver/templates/poddisruptionbudget-controller.yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: fcfs-csi-controller
+  labels:
+    app.kubernetes.io/name: fcfs-csi-driver
+spec:
+  selector:
+    matchLabels:
+      app: fcfs-csi-controller
+      app.kubernetes.io/name: fcfs-csi-driver
+  maxUnavailable: 1

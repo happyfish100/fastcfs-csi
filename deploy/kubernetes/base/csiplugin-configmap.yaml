@@ -1,0 +1,11 @@
+---
+# Source: fcfs-csi-driver/templates/csiplugin-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "fcfs-csi-config"
+  labels:
+    app.kubernetes.io/name: fcfs-csi-driver
+data:
+  config.json: |-
+    []

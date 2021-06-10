@@ -1,0 +1,15 @@
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: fcfs-csi-node-getter-binding
+  labels:
+    {{- include "fcfs-csi-driver.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.node.name }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: fcfs-csi-node-role
+  apiGroup: rbac.authorization.k8s.io

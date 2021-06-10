@@ -35,13 +35,13 @@ type Config struct {
 	Ephemeral         bool   // publish volumes in ephemeral mode even if kubelet did not ask for it (only needed for Kubernetes 1.15)
 	MaxVolumesPerNode int64  // limit of volumes per node
 	Version           bool   // Show version
-	DomainLabels      string
+	DomainLabels      []string
 
 	IsControllerServer bool
 	IsNodeServer       bool
 
-	FcfsFusedProxyEndpoint string
-	EnableFcfsFusedProxy   bool
+	FcfsFusedProxyEndpoint   string
+	EnableFcfsFusedProxy     bool
 	FcfsFusedProxyConnTimout int
 }
 
