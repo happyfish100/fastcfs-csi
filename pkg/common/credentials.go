@@ -113,10 +113,27 @@ func NewUserCredentials(secrets map[string]string) (*Credentials, error) {
 	return newCredentialsFromSecret(userName, userSecretKey, secrets)
 }
 
-func UserName(secrets map[string]string) string {
-	un := secrets[userName]
-	if len(un) == 0 {
-		return secrets[adminName]
+func GetCredentialsForVolume(pre bool, secrets map[string]string) (*Credentials, error) {
+	var (
+		err error
+		cr  *Credentials
+	)
+
+	if pre {
+		// The volume is pre-made, credentials are in node stage secrets
+
+		cr, err = NewUserCredentials(secrets)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user credentials from secrets: %w", err)
+		}
+	} else {
+		// The volume is provisioned dynamically, use passed in admin credentials
+
+		cr, err = NewAdminCredentials(secrets)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get admin credentials from secrets: %w", err)
+		}
 	}
-	return userName
+
+	return cr, nil
 }

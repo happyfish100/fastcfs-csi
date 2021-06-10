@@ -35,5 +35,6 @@ const (
 )
 
 const (
+	DefaultDriverName  = "fcfs.csi.vazmin.github.io"
 	DefaultCSIEndpoint = "unix://tmp/csi.sock"
 )

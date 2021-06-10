@@ -19,7 +19,9 @@ type Mounter interface {
 
 	MakeDir(path string) error
 	PathExists(path string) (bool, error)
-	FcfsMount(ctx context.Context, volOptions *fcfs.VolumeOptions, mountOptions *fcfs.MountOptionsSecrets, cr *common.Credentials) error
+
+	FcfsMount(ctx context.Context, volOptions *fcfs.VolumeOptions, mountOptions *fcfs.MountOptionsSecrets) error
+
 }
 
 type NodeMounter struct {
@@ -43,12 +45,19 @@ func (n *NodeMounter) PathExists(path string) (bool, error) {
 	panic("implement me")
 }
 
-func (n *NodeMounter) FcfsMount(ctx context.Context, volOptions *fcfs.VolumeOptions, mountOptions *fcfs.MountOptionsSecrets, cr *common.Credentials) error {
+
+func (n *NodeMounter) FcfsMount(ctx context.Context, volOptions *fcfs.VolumeOptions, mountOptions *fcfs.MountOptionsSecrets) error {
+
 	if mountOptions.EnableFcfsFusedProxy {
 		_, err := fcfs.MountFcfsFusedWithProxy(ctx, volOptions, mountOptions)
 		return err
 	} else {
-		return fcfs.FuseMount(ctx, volOptions, cr)
+		credentials, err := common.GetCredentialsForVolume(volOptions.PreProvisioned, mountOptions.Secrets)
+		if err != nil {
+			return err
+		}
+		defer credentials.DeleteCredentials()
+		return fcfs.FuseMount(ctx, volOptions, credentials)
 	}
 }
 

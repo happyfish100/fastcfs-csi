@@ -28,6 +28,16 @@ import (
 	mount_fcfs_fused "vazmin.github.io/fastcfs-csi/pkg/fcfsfused-proxy/pb"
 )
 
+// Tags
+const (
+	// VolumeNameTagKey is the key value that refers to the volume's name.
+	VolumeNameTagKey = "CSIVolumeName"
+	// KubernetesTagKeyPrefix is the prefix of the key value that is reserved for Kubernetes.
+	KubernetesTagKeyPrefix = "kubernetes.io"
+	// FcfsDriverTagKey is the tag to identify if a volume is managed by fcfs csi driver
+	FcfsDriverTagKey = "fcfs.csi.vazmin.github.io/cluster"
+)
+
 type cfs struct {
 }
 
@@ -46,6 +56,8 @@ type VolumeOptions struct {
 	VolPath             string
 	BaseConfigURL       string
 	ClusterID           string
+	PreProvisioned      bool
+
 }
 
 func (vo *VolumeOptions) getPoolConfigURL() string {
@@ -118,7 +130,9 @@ func (c *cfs) DeleteVolume(ctx context.Context, volOptions *VolumeOptions, cr *c
 }
 
 func (c *cfs) ResizeVolume(ctx context.Context, volOptions *VolumeOptions, cr *common.Credentials) (int64, error) {
-	newSize := common.RoundUpGiB(volOptions.CapacityBytes)
+
+	newSize := common.RoundOffBytes(volOptions.CapacityBytes)
+
 	args := []string{
 		"-u", cr.UserName,
 		"-k", cr.KeyFile,
@@ -204,9 +218,10 @@ func MountFcfsFusedWithProxy(ctx context.Context, volumeOptions *VolumeOptions, 
 	if err == nil {
 		mountClient := NewMountClient(conn)
 		mountReq := mount_fcfs_fused.MountFcfsFusedRequest{
-			BasePath:  basePath,
-			MountArgs: args,
-			Secrets:   mountOption.Secrets,
+			BasePath:       basePath,
+			MountArgs:      args,
+			Secrets:        mountOption.Secrets,
+			PreProvisioned: volumeOptions.PreProvisioned,
 		}
 		klog.V(2).Infof("calling fcfsfused Proxy: MountFcfsFused function")
 		resp, err = mountClient.service.MountFcfsFused(context.TODO(), &mountReq)
