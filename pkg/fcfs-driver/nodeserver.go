@@ -62,6 +62,7 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
+
 	volOptions, err := NewVolOptionsFromVolID(volumeId, nil)
 
 	if err != nil {

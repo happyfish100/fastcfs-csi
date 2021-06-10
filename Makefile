@@ -79,8 +79,6 @@ delete-plugin-po:
 local-deploy: image-clean build image-csi kind-load-image
 
 
-
-
 .PHONY: fcfsfused-proxy
 fcfsfused-proxy:
 	CGO_ENABLED=0 GOOS=linux go build -mod vendor -ldflags="-s -w" -o _output/fcfsfused-proxy ./pkg/fcfsfused-proxy

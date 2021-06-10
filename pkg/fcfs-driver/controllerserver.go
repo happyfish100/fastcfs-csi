@@ -162,6 +162,7 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	defer cr.DeleteCredentials()
+  
 	if err := cs.cfs.DeleteVolume(ctx, vol, cr); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete FcfsVolume %v: %v", volID, err)
 	}
@@ -229,6 +230,7 @@ func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 	defer cr.DeleteCredentials()
 
 	vol, err := NewVolOptionsFromVolID(volumeId, req.GetCapacityRange())
+
 	if err != nil {
 		klog.Errorf("failed to new volume %s: %v", volumeId, err)
 		return nil, status.Error(codes.Internal, err.Error())

@@ -57,6 +57,7 @@ type VolumeOptions struct {
 	BaseConfigURL       string
 	ClusterID           string
 	PreProvisioned      bool
+
 }
 
 func (vo *VolumeOptions) getPoolConfigURL() string {
@@ -129,7 +130,9 @@ func (c *cfs) DeleteVolume(ctx context.Context, volOptions *VolumeOptions, cr *c
 }
 
 func (c *cfs) ResizeVolume(ctx context.Context, volOptions *VolumeOptions, cr *common.Credentials) (int64, error) {
+
 	newSize := common.RoundOffBytes(volOptions.CapacityBytes)
+
 	args := []string{
 		"-u", cr.UserName,
 		"-k", cr.KeyFile,
