@@ -1,0 +1,17 @@
+{{- $replicas := (default .Values.replicaCount .Values.controller.replicaCount) | int }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: fcfs-csi-controller
+  labels:
+    {{- include "fcfs-csi-driver.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: fcfs-csi-controller
+      {{- include "fcfs-csi-driver.selectorLabels" . | nindent 6 }}
+  {{- if le $replicas 2 }}
+  maxUnavailable: 1
+  {{- else }}
+  minAvailable: 2
+{{- end }}

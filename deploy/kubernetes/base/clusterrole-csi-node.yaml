@@ -1,0 +1,12 @@
+---
+# Source: fcfs-csi-driver/templates/clusterrole-csi-node.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: fcfs-csi-node-role
+  labels:
+    app.kubernetes.io/name: fcfs-csi-driver
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]

@@ -14,15 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fcfs
+package driver
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/klog/v2"
-	"k8s.io/mount-utils"
-	utilexec "k8s.io/utils/exec"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
 	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
+	"vazmin.github.io/fastcfs-csi/pkg/fcfs"
 )
 
 type fcfsDriver struct {
@@ -39,7 +38,10 @@ const (
 	mountAccess accessType = iota
 	blockAccess
 )
-const TopologyKeyNode = "topology.fcfs.csi/node"
+
+// NewMetadataFunc is a variable for the cloud.NewMetadata function that can
+// be overwritten in unit tests.
+var NewMetadataFunc = fcfs.NewMetadata
 
 func NewFcfsDriver() *fcfsDriver {
 	return &fcfsDriver{}
@@ -51,24 +53,21 @@ func NewIdentityServer(d *csicommon.CSIDriver) *identityServer {
 	}
 }
 
-func NewControllerServer(d *csicommon.CSIDriver) *controllerServer {
-	return &controllerServer{
-		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
-		volumeLocks:             common.NewVolumeLocks(),
-	}
-}
-
 func NewNodeServer(d *csicommon.CSIDriver, enableFcfsFusedProxy bool, fcfsFusedEndpoint string, fcfsFusedProxyConnTimout int, topology map[string]string) *nodeServer {
+	mountOptions := &fcfs.MountOptions{
+		EnableFcfsFusedProxy:     enableFcfsFusedProxy,
+		FcfsFusedEndpoint:        fcfsFusedEndpoint,
+		FcfsFusedProxyConnTimout: fcfsFusedProxyConnTimout,
+	}
+	nodeMounter, err := newNodeMounter()
+	if err != nil {
+		panic(err)
+	}
 	return &nodeServer{
 		DefaultNodeServer: csicommon.NewDefaultNodeServer(d, topology),
-		mounter: &mount.SafeFormatAndMount{
-			Interface: mount.New(""),
-			Exec:      utilexec.New(),
-		},
-		volumeLocks: common.NewVolumeLocks(),
-		enableFcfsFusedProxy: enableFcfsFusedProxy,
-		fcfsFusedEndpoint: fcfsFusedEndpoint,
-		fcfsFusedProxyConnTimout: fcfsFusedProxyConnTimout,
+		mounter:           nodeMounter,
+		volumeLocks:       common.NewVolumeLocks(),
+		mountOptions:      mountOptions,
 	}
 }
 
@@ -91,15 +90,23 @@ func (fc *fcfsDriver) Run(conf *common.Config) {
 			csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 		})
 	}
-	topology, err := common.GetTopologyFromDomainLabels(conf.DomainLabels, conf.NodeID, conf.DriverName)
+	metadataSrv, err := NewMetadataFunc(conf.NodeID)
 	if err != nil {
-		klog.Fatalln("Failed GetTopologyFromDomainLabels, %v", err)
+		klog.Fatalln("Failed New Metadata, %v, %q", err, conf.NodeID)
 	}
+	topology, err := common.GetTopologyFromDomainLabels(metadataSrv.GetLabels(), conf.DomainLabels, conf.DriverName)
+	if err != nil {
+		klog.Fatalln("Failed GetTopologyFromDomainLabels, %v, %q", err, conf.NodeID)
+	}
+	klog.V(4).Infof("topology form domain labels: %q", topology)
 
 	both := !conf.IsControllerServer && !conf.IsNodeServer
 	fc.ids = NewIdentityServer(fc.driver)
 	if conf.IsControllerServer || both {
-		fc.cs = NewControllerServer(fc.driver)
+		fc.cs, err = NewControllerServer(fc.driver)
+		if err != nil {
+			klog.Fatalln("Failed New Controller Server, %v, %q", err, conf.NodeID)
+		}
 	}
 
 	if conf.IsNodeServer || both {

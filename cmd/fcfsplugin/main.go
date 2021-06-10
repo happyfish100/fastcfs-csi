@@ -19,29 +19,26 @@ package main
 import (
 	"flag"
 	"fmt"
+	"k8s.io/klog/v2"
 	"os"
-	"path"
-
 	"vazmin.github.io/fastcfs-csi/pkg/common"
 	fcfs "vazmin.github.io/fastcfs-csi/pkg/fcfs-driver"
 )
 
-func init() {
-	flag.Set("logtostderr", "true")
-}
-
 var (
-	conf common.Config
+	conf   common.Config
+	osExit = os.Exit
 )
 
-func init() {
+func initFlag() {
+
 	flag.StringVar(&conf.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	flag.StringVar(&conf.DriverName, "drivername", "fcfs.csi.vazmin.github.io", "name of the driver")
+	flag.StringVar(&conf.DriverName, "driver-name", "fcfs.csi.vazmin.github.io", "name of the driver")
 	flag.StringVar(&conf.NodeID, "nodeid", "", "node id")
 	flag.BoolVar(&conf.Ephemeral, "ephemeral", false, "publish volumes in ephemeral mode even if kubelet did not ask for it (only needed for Kubernetes 1.15)")
-	flag.Int64Var(&conf.MaxVolumesPerNode, "maxvolumespernode", 0, "limit of volumes per node")
+	flag.Int64Var(&conf.MaxVolumesPerNode, "max-volumes-per-node", 0, "limit of volumes per node")
 	flag.BoolVar(&conf.Version, "version", false, "Show version.")
-	flag.StringVar(&conf.DomainLabels, "domainlabels", "", "topology")
+	flag.Var(common.NewStringSlice(&conf.DomainLabels), "domain-labels", "topology")
 
 	flag.BoolVar(&conf.IsNodeServer, "node-server", false, "start fastcfs-csi node server")
 	flag.BoolVar(&conf.IsControllerServer, "controller-server", false, "start fastcfs-csi controller server")
@@ -49,15 +46,23 @@ func init() {
 	flag.StringVar(&conf.FcfsFusedProxyEndpoint, "fcfsfused-proxy-endpoint", "unix://tmp/fcfsfused-proxy.sock", "fcfsfused-proxy endpoint")
 	flag.BoolVar(&conf.EnableFcfsFusedProxy, "enable-fcfsfused-proxy", false, "enable fcfsfused-proxy")
 	flag.IntVar(&conf.FcfsFusedProxyConnTimout, "fcfsfused-proxy-conn-timeout", 5, "fcfsfused proxy connection timeout(seconds)")
+
+	klog.InitFlags(nil)
+	if err := flag.Set("logtostderr", "true"); err != nil {
+		klog.Exitf("failed to set logtostderr flag: %v", err)
+	}
+	flag.Parse()
 }
 
 func main() {
-	flag.Parse()
-
+	initFlag()
 	if conf.Version {
-		baseName := path.Base(os.Args[0])
-		fmt.Println(baseName, common.DriverVersion)
-		return
+		info, err := common.GetVersionJSON()
+		if err != nil {
+			klog.Fatalln(err)
+		}
+		fmt.Println(info)
+		osExit(0)
 	}
 
 	driver := fcfs.NewFcfsDriver()

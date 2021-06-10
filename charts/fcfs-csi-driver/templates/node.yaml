@@ -1,0 +1,173 @@
+# Node Service
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: fcfs-csi-node
+  labels:
+    {{- include "fcfs-csi-driver.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: fcfs-csi-node
+      {{- include "fcfs-csi-driver.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: fcfs-csi-node
+        {{- include "fcfs-csi-driver.labels" . | nindent 8 }}
+      {{- with .Values.node.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+        {{- with .Values.node.nodeSelector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      hostNetwork: true
+      serviceAccountName: {{ .Values.serviceAccount.node.name }}
+      priorityClassName: {{ .Values.node.priorityClassName | default "system-node-critical" }}
+      tolerations:
+        {{- if .Values.node.tolerateAllTaints }}
+        - operator: Exists
+        {{- else }}
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 300
+        {{- end }}
+        {{- with .Values.node.tolerations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      containers:
+        - name: fcfs-plugin
+          securityContext:
+            privileged: true
+            capabilities:
+              add: [ "SYS_ADMIN" ]
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          args:
+            - --node-server=true
+            - --endpoint=$(CSI_ENDPOINT)
+            {{- if .Values.node.maxVolumesPerNode }}
+            - --maxvolumespernode={{ . }}
+            {{- end }}
+            - --nodeid=$(CSI_NODE_NAME)
+            - --v=4
+            {{- if .Values.topology.enabled }}
+            - "--domain-labels={{ .Values.topology.domainLabels | join "," }}"
+            {{- end }}
+          env:
+            - name: CSI_ENDPOINT
+              value: {{ printf "unix://csi/%s" .Values.node.socketFile }}
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- if .Values.proxy.http_proxy }}
+            {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: kubelet-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: socket-dir
+              mountPath: /csi
+            - name: device-dir
+              mountPath: /dev
+            - mountPath: /etc/fcfs-csi-config/
+              name: fcfs-csi-config
+            - mountPath: /tmp/csi/keys
+              name: keys-tmp-dir
+          ports:
+            - name: healthz
+              containerPort: 9808
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          {{- with default .Values.resources (default .Values.node.resources .Values.node.containerResources.fcfsPlugin) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        - name: node-driver-registrar
+          image: {{ printf "%s:%s" .Values.sidecars.nodeDriverRegistrarImage.repository .Values.sidecars.nodeDriverRegistrarImage.tag }}
+          args:
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v=5
+          env:
+            - name: ADDRESS
+              value: {{ printf "/csi/%s" .Values.node.socketFile }}
+            - name: DRIVER_REG_SOCK_PATH
+              value: {{ printf "%s/plugins/%s/%s" (trimSuffix "/" .Values.node.kubeletPath) .Values.driverName .Values.node.socketFile }}
+            {{- if .Values.proxy.http_proxy }}
+            {{- include "fcfs-csi-driver.http-proxy" . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.node.env.nodeDriverRegistrar }}
+            {{- . | toYaml | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          {{- with default .Values.resources (default .Values.node.resources .Values.node.containerResources.nodeDriverRegistrar) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        - name: liveness-probe
+          image: {{ printf "%s:%s" .Values.sidecars.livenessProbeImage.repository .Values.sidecars.livenessProbeImage.tag }}
+          args:
+            - --csi-address=$(ADDRESS)
+          env:
+            - name: ADDRESS
+              value: {{ printf "/csi/%s" .Values.node.socketFile }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          {{- with default .Values.resources (default .Values.node.resources .Values.node.containerResources.liveness) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- range .Values.imagePullSecrets }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      volumes:
+        - name: kubelet-dir
+          hostPath:
+            path: {{ .Values.node.kubeletPath }}
+            type: Directory
+        - name: socket-dir
+          hostPath:
+            path: {{ printf "%s/plugins/%s/" (trimSuffix "/" .Values.node.kubeletPath) .Values.driverName }}
+            type: DirectoryOrCreate
+        - name: plugin-dir
+          hostPath:
+            path: {{ printf "%s/plugins/" (trimSuffix "/" .Values.node.kubeletPath) }}
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: {{ printf "%s/plugins_registry/" (trimSuffix "/" .Values.node.kubeletPath) }}
+            type: Directory
+        - name: device-dir
+          hostPath:
+            path: /dev
+            type: Directory
+        - name: fcfs-csi-config
+          configMap:
+            name: {{ .Values.configMapName }}
+        - name: keys-tmp-dir
+          emptyDir: {
+            medium: "Memory"
+          }
