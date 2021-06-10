@@ -59,9 +59,9 @@ func (server *MountServer) MountFcfsFused(ctx context.Context,
 
 	klog.V(2).Infof("received mount request: Mounting with args %v \n", args)
 
-	cr, err := common.NewAdminCredentials(req.GetSecrets())
+	cr, err := common.GetCredentialsForVolume(req.PreProvisioned, req.GetSecrets())
 	if err != nil {
-		klog.Errorf("failed to retrieve admin credentials: %v", err)
+		klog.Errorf("failed to retrieve credentials: %v", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	defer cr.DeleteCredentials()

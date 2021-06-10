@@ -5,15 +5,16 @@ go 1.16
 require (
 	github.com/container-storage-interface/spec v1.4.0
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.2 // indirect
+	github.com/google/uuid v1.1.2
 	github.com/kubernetes-csi/csi-lib-utils v0.9.1
+	github.com/onsi/ginkgo v1.11.0
+	github.com/onsi/gomega v1.7.0
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/net v0.0.0-20210331060903-cb1fcc7394e5
-	golang.org/x/text v0.3.4 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/grpc v1.36.1
 	google.golang.org/protobuf v1.25.0
-	k8s.io/api v0.21.0 // indirect
+	k8s.io/api v0.21.0
 	k8s.io/apimachinery v0.21.0
 	k8s.io/client-go v0.21.0
 	k8s.io/klog/v2 v2.8.0

@@ -6,6 +6,7 @@ message MountFcfsFusedRequest {
 	string basePath = 1;
 	repeated string mountArgs = 2;
 	map<string, string> secrets = 3;
+	bool PreProvisioned = 4;
 }
 
 message MountFcfsFusedResponse {
