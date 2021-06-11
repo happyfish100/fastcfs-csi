@@ -4,4 +4,4 @@ bases:
   - ../../base
 images:
   - name: vazmin/fcfs-csi
-    newTag: canary
+    newTag: v0.2.0

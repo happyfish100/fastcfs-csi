@@ -1,16 +1,73 @@
 # fastcfs-csi
 
-A Container Storage Interface (CSI) Driver for FastCFS.
-The CSI plugin allows you to use FastCFS with your preferred Container Orchestrator.
-It allows dynamically provisioning FastCFS volumes and attaching them to workloads.
+## Overview
+
+The [FastCFS](https://github.com/happyfish100/FastCFS/) Container Storage Interface (CSI) Driver provides a [CSI](https://github.com/container-storage-interface/spec/blob/master/spec.md) interface used by Container Orchestrators to manage the lifecycle of FastCFS volumes.
 
 ## Project status
 
-Status: **Alpha**
+Status: **beta**
 
-## How to start
+## Features
+* **Static Provisioning** - create a new or migrating existing FastCFS volumes, then create persistence volume (PV) from the FastCFS volume and consume the PV from container using persistence volume claim (PVC).
+* **Dynamic Provisioning** - uses persistence volume claim (PVC) to request the Kuberenetes to create the FastCFS volume on behalf of user and consumes the volume from inside container. 
+* **Mount Option** - mount options could be specified in persistence volume (PV) to define how the volume should be mounted.
+* **[Volume Resizing](https://kubernetes-csi.github.io/docs/volume-expansion.html)** - expand the volume size. The corresponding CSI feature (`ExpandCSIVolumes`) is beta since Kubernetes 1.16.
 
-see [deploy](./docs/deploy.md)
+**Note** fastcfs-csi does not supports deletion for static PV.
+`persistentVolumeReclaimPolicy` in PV spec must be set to `Retain` to avoid PV delete attempt in csi-provisioner.
+
+## Prerequisites
+* [FastCFS](https://github.com/happyfish100/FastCFS/) version >= `v2.1.0`
+* Provide network address to get configuration file. 
+    * e.g: `cp /opt/fastcfs /path/www && python -m http.server 8080`.
+* Get yourself familiar with how to setup Kubernetes and have a working Kubernetes cluster:
+    * Enable flag `--allow-privileged=true` for `kubelet` and `kube-apiserver`
+    * Enable `kube-apiserver` feature gates `--feature-gates=CSINodeInfo=true,CSIDriverRegistry=true`
+    * Enable `kubelet` feature gates `--feature-gates=CSINodeInfo=true,CSIDriverRegistry=true`
+    
+## Installation
+#### Set up driver permission
+The driver requires FastCFS secret to talk to FastCFS to manage the volume on user's behalf. There is a method to grant driver permission:
+Using secret object - create an admin and user with proper permission, put that user's credentials in [secret manifest](../deploy/kubernetes/secret.yaml) then deploy the secret.
+```sh
+curl https://raw.githubusercontent.com/happyfish100/fastcfs-csi/master/deploy/kubernetes/secret.yaml > secret.yaml
+# Edit the secret with user credentials
+kubectl apply -f secret.yaml
+```
+Then reference this key in your storage class.
+
+#### Config node toleration settings
+By default, driver tolerates taint `CriticalAddonsOnly` and has `tolerationSeconds` configured as `300`, to deploy the driver on any nodes, please set helm `Value.node.tolerateAllTaints` to true before deployment
+
+#### Deploy driver
+Please see the compatibility matrix above before you deploy the driver
+
+```sh
+kubectl apply -k "github.com/happyfish100/fastcfs-csi/deploy/kubernetes/overlays/dev/?ref=master"
+```
+
+Replace the cluster config
+```sh
+curl https://raw.githubusercontent.com/happyfish100/fastcfs-csi/master/deploy/kubernetes/base/csiplugin-configmap.yaml > csiplugin-configmap.yaml
+kubectl replace -f csiplugin-configmap.yaml
+```
+
+Verify driver is running:
+```sh
+kubectl get pods
+```
+
+#### Deploy driver with debug mode
+To view driver debug logs, run the CSI driver with `-v=5` command line option
+
+## Examples
+Make sure you follow the [Prerequisites](README.md#Prerequisites) before the examples:
+* [Config Map](../examples/kubernetes/config-map)
+* [Dynamic Provisioning](../examples/kubernetes/dynamic-provisioning)
+* [Static Provisioning](../examples/kubernetes/static-provisioning)
+* [Configure StorageClass](../examples/kubernetes/storageclass)
+* [Volume Resizing](../examples/kubernetes/resizing)
 
 ## Support
 
@@ -20,3 +77,29 @@ The driver is currently developed with csi spec v1.4.0, and tested on kubernetes
 
 Please refer to the [matrix](https://kubernetes-csi.github.io/docs/#kubernetes-releases)
 in the Kubernetes documentation.
+
+## Development
+Please go through [CSI Spec](https://github.com/container-storage-interface/spec/blob/master/spec.md) and [General CSI driver development guideline](https://kubernetes-csi.github.io/docs/developing.html) to get some basic understanding of CSI driver before you start.
+
+### Requirements
+* Golang 1.15.+
+* [Ginkgo](https://github.com/onsi/ginkgo) in your PATH for end-to-end testing
+* Docker 17.05+ for releasing
+
+### Dependency
+Dependencies are managed through go module. To build the project, first turn on go mod using `export GO111MODULE=on`, then build the project using: `make`
+
+### Testing
+
+* To execute e2e tests, run: `make test-e2e-single-nn` and `make test-e2e-multi-nn` (Now it can only be executed locally, and you can connect to the FastCFS cluster locally)
+
+### Build Container Image
+* Build image : `make image-csi`
+
+### Helm and manifests
+The helm chart for this project is in the `charts/fcfs-csi-driver` directory.  The manifests for this project are in the `deploy/kubernetes` directory.  All the manifests except kustomize patches are generated by running `helm template`.  This keeps the helm chart and the manifests in sync.
+
+When updating the helm chart:
+* Generate manifests: `make generate-kustomize`
+* There are values files in `deploy/kubernetes/values` used for generating some manifests
+* When adding a new resource template to the helm chart please update the `generate-kustomize` make target, the `deploy/kubernetes/values` files, and the appropriate kustomization.yaml file(s).

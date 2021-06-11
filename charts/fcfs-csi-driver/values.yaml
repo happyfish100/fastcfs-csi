@@ -62,7 +62,7 @@ controller:
     resizer: []
   # If set, add pv/pvc metadata to plugin create requests as parameters.
   extraCreateMetadata: false
-  # Will be removed in later version in favor of env.ebsPlugin
+  # Will be removed in later version in favor of env.fcfsPlugin
   extraVars: {}
   # Extra volume tags to attach to each dynamically provisioned volume.
   # ---
@@ -71,7 +71,7 @@ controller:
   #   key2: value2
   extraVolumeTags: {}
   httpEndpoint:
-  # ID of the Kubernetes cluster used for tagging provisioned EBS volumes (optional).
+  # ID of the Kubernetes cluster used for tagging provisioned FastCFS volumes (optional).
   k8sTagClusterId:
   nodeSelector: {}
   podAnnotations: {}

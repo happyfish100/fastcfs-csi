@@ -218,9 +218,6 @@ func (t *TestPersistentVolumeClaim) ValidateProvisionedPersistentVolume() {
 				To(HaveLen(1))
 		}
 		if len(t.storageClass.AllowedTopologies) > 0 {
-			// Since we're chaging our topology key, assume we have the values below to compare:
-			// NodeSelectorTerms: [{[{topology.ebs.csi.aws.com/zone In [us-west-2a]} {topology.kubernetes.io/zone In [us-west-2a]}] []}]
-			// AllowedTopologies: [{[{topology.ebs.csi.aws.com/zone [us-west-2a us-west-2b us-west-2c]}]}]
 			// As you can see tests might fail depending on the ordering of the NodeSelectorTerms. That's why we're doing this "hack".
 			// This is a quick fix to unblock the PRs we have. We really need to improve this. TODO
 

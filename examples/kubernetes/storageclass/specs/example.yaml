@@ -1,0 +1,53 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: fcfs-sc
+provisioner: fcfs.csi.vazmin.github.io
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  # The secrets have to contain admin credentials.
+  csi.storage.k8s.io/provisioner-secret-name: csi-fcfs-secret
+  csi.storage.k8s.io/provisioner-secret-namespace: default
+  csi.storage.k8s.io/controller-expand-secret-name: csi-fcfs-secret
+  csi.storage.k8s.io/controller-expand-secret-namespace: default
+  csi.storage.k8s.io/node-stage-secret-name: csi-fcfs-secret
+  csi.storage.k8s.io/node-stage-secret-namespace: default
+  csi.storage.k8s.io/node-publish-secret-name: csi-fcfs-secret
+  csi.storage.k8s.io/node-publish-secret-namespace: default
+  clusterID: virtual-cluster-id-1
+  domainLabels: "topology.fcfs.csi.vazmin.github.io/hostname"
+allowedTopologies:
+- matchLabelExpressions:
+  - key: topology.fcfs.csi.vazmin.github.io/hostname
+    values:
+    - kind-control-plane
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fcfs-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: fcfs-sc
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app
+spec:
+  containers:
+  - name: app
+    image: busybox
+    command: ["/bin/sh"]
+    args: ["-c", "while true; do echo $(date -u) >> /data/out.txt; sleep 5; done"]
+    volumeMounts:
+      - name: persistent-storage
+        mountPath: /data
+  volumes:
+  - name: persistent-storage
+    persistentVolumeClaim:
+      claimName: fcfs-claim

@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: test-pv
+spec:
+  capacity:
+    storage: 4Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  csi:
+    driver: fcfs.csi.vazmin.github.io
+    fsType: ext4
+    # volumeHandle should be same as FastCFS pool name
+    volumeHandle: vol-0123456789
+    nodeStageSecretRef:
+      # node stage secret name
+      name: csi-fcfs-secret
+      # node stage secret namespace where above secret is created
+      namespace: default
+    volumeAttributes:
+      # Required options from storage class parameters need to be added in volumeAttributes
+      "clusterID": "virtual-cluster-id-1"
+      "static": "true"
+    persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fcfs-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 4Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app
+spec:
+  containers:
+  - name: app
+    image: busybox
+    command: ["/bin/sh"]
+    args: ["-c", "while true; do echo $(date -u) >> /data/out.txt; sleep 5; done"]
+    volumeMounts:
+    - name: persistent-storage
+      mountPath: /data
+  volumes:
+  - name: persistent-storage
+    persistentVolumeClaim:
+      claimName: fcfs-claim
