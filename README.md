@@ -1,4 +1,6 @@
-# fastcfs-csi
+# FastCFS-CSI
+
+English | [简体中文](./README-zh_CN.md)
 
 ## Overview
 
@@ -17,10 +19,20 @@ Status: **beta**
 **Note** fastcfs-csi does not supports deletion for static PV.
 `persistentVolumeReclaimPolicy` in PV spec must be set to `Retain` to avoid PV delete attempt in csi-provisioner.
 
+# FastCFS CSI Driver on Kubernetes
+Following sections are Kubernetes specific. If you are Kubernetes user, use followings for driver features, installation steps and examples.
+
+## Kubernetes Version Compatibility Matrix
+| FastCFS CSI Driver \ Kubernetes Version| v1.17 | v1.18+ |
+|----------------------------------------|-------|-------|
+| master branch                          | ?     | yes   |
+| v0.2.0                                 | ?     | yes   |
+| v0.1.0                                 | ?     | yes   |
+
 ## Prerequisites
-* [FastCFS](https://github.com/happyfish100/FastCFS/) version >= `v2.1.0`
-* Provide network address to get configuration file. 
-    * e.g: `cp /opt/fastcfs /path/www && python -m http.server 8080`.
+* [FastCFS](https://github.com/happyfish100/FastCFS/) `v2.1.+ `
+* Provide network address to get FastCFS client configuration file. 
+    * e.g: `cp /opt/fastcfs /path/www && cd /path/www && python -m http.server 8080`.
 * Get yourself familiar with how to setup Kubernetes and have a working Kubernetes cluster:
     * Enable flag `--allow-privileged=true` for `kubelet` and `kube-apiserver`
     * Enable `kube-apiserver` feature gates `--feature-gates=CSINodeInfo=true,CSIDriverRegistry=true`
@@ -29,12 +41,15 @@ Status: **beta**
 ## Installation
 #### Set up driver permission
 The driver requires FastCFS secret to talk to FastCFS to manage the volume on user's behalf. There is a method to grant driver permission:
-Using secret object - create an admin and user with proper permission, put that user's credentials in [secret manifest](../deploy/kubernetes/secret.yaml) then deploy the secret.
+
+- Using secret object - create an admin and user with proper permission, put that user's credentials （The default directory of FastCFS credentials is `/etc/fastcfs/auth/keys`） in [secret manifest](./deploy/kubernetes/secret.yaml) then deploy the secret.
+
 ```sh
 curl https://raw.githubusercontent.com/happyfish100/fastcfs-csi/master/deploy/kubernetes/secret.yaml > secret.yaml
 # Edit the secret with user credentials
 kubectl apply -f secret.yaml
 ```
+
 Then reference this key in your storage class.
 
 #### Config node toleration settings
@@ -47,7 +62,7 @@ Please see the compatibility matrix above before you deploy the driver
 kubectl apply -k "github.com/happyfish100/fastcfs-csi/deploy/kubernetes/overlays/dev/?ref=master"
 ```
 
-Replace the cluster config
+Edit the configmap and replace the cluster config. [ConfigMap example](./examples/kubernetes/config-map/README.md)
 ```sh
 curl https://raw.githubusercontent.com/happyfish100/fastcfs-csi/master/deploy/kubernetes/base/csiplugin-configmap.yaml > csiplugin-configmap.yaml
 kubectl replace -f csiplugin-configmap.yaml
@@ -63,15 +78,11 @@ To view driver debug logs, run the CSI driver with `-v=5` command line option
 
 ## Examples
 Make sure you follow the [Prerequisites](README.md#Prerequisites) before the examples:
-* [Config Map](../examples/kubernetes/config-map)
-* [Dynamic Provisioning](../examples/kubernetes/dynamic-provisioning)
-* [Static Provisioning](../examples/kubernetes/static-provisioning)
-* [Configure StorageClass](../examples/kubernetes/storageclass)
-* [Volume Resizing](../examples/kubernetes/resizing)
-
-## Support
-
-The driver is currently developed with csi spec v1.4.0, and tested on kubernetes v1.20+.
+* [Config Map](./examples/kubernetes/config-map)
+* [Dynamic Provisioning](./examples/kubernetes/dynamic-provisioning)
+* [Static Provisioning](./examples/kubernetes/static-provisioning)
+* [Configure StorageClass](./examples/kubernetes/storageclass)
+* [Volume Resizing](./examples/kubernetes/resizing)
 
 ### CSI spec and Kubernetes version compatibility
 
