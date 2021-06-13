@@ -19,5 +19,3 @@ parameters:
   csi.storage.k8s.io/node-publish-secret-namespace: default
 
   clusterID: virtual-cluster-id-1
-
-  domainLabels: ""

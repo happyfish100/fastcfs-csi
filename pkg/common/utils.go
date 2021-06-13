@@ -100,9 +100,7 @@ func RoundUpGiB(volumeSizeBytes int64) int64 {
 	return roundUpSize(volumeSizeBytes, GiB)
 }
 
-// roundUpSize calculates how many allocation units are needed to accommodate
-// a volume of given size. E.g. when user wants 1500MiB volume, while AWS EBS
-// allocates volumes in gibibyte-sized chunks,
+// roundUpSize calculates how many allocation units are needed to accommodate a volume of given size.
 // RoundUpSize(1500 * 1024*1024, 1024*1024*1024) returns '2'
 // (2 GiB is the smallest allocatable volume that can hold 1500MiB)
 func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {

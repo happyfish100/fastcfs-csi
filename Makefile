@@ -66,15 +66,11 @@ image-clean: .container-cmd
 	@test -n "$(shell which $(CONTAINER_CMD) 2>/dev/null)" || { echo "Missing container support, install Podman or Docker"; exit 1; }
 	@echo "$(CONTAINER_CMD)" > .container-cmd
 
-
 kind-load-image:
 	kind load docker-image $(CSI_IMAGE)
 
 kind-clean:
 	$(CONTAINER_CMD) exec kind-control-plane bash -c "crictl image | grep $(CSI_IMAGE_NAME) | grep $(CSI_IMAGE_VERSION) | awk '{print $$3}' | xargs -r crictl rmi"
-
-delete-plugin-po:
-	kubectl delete po csi-fcfsplugin-0
 
 local-deploy: image-clean build image-csi kind-load-image
 
