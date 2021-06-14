@@ -31,8 +31,8 @@ Following sections are Kubernetes specific. If you are Kubernetes user, use foll
 
 ## Prerequisites
 * [FastCFS](https://github.com/happyfish100/FastCFS/) `v2.1.+ `
-* Provide network address to get FastCFS client configuration file. 
-    * e.g: `cp /opt/fastcfs /path/www && cd /path/www && python -m http.server 8080`.
+* Configuration files such as FastCFS client, auth module and cluster need to provide HTTP or HTTPS access. 
+    * e.g: `cp -r /etc/fastcfs /path/www && cd /path/www && python3 -m http.server 8080`.
 * Get yourself familiar with how to setup Kubernetes and have a working Kubernetes cluster:
     * Enable flag `--allow-privileged=true` for `kubelet` and `kube-apiserver`
     * Enable `kube-apiserver` feature gates `--feature-gates=CSINodeInfo=true,CSIDriverRegistry=true`

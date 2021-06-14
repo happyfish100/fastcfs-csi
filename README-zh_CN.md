@@ -31,8 +31,8 @@ FastCFS 容器存储接口（CSI）驱动器提供 [CSI](https://github.com/cont
 
 ## 先决条件
 * [FastCFS](https://github.com/happyfish100/FastCFS/) `v2.1.+ `
-* FastCFS客户端配置文件能通过网络接口访问。
-    * 例如: `cp /opt/fastcfs /path/www && cd /path/www && python -m http.server 8080`.
+* FastCFS客户端、auth模块和cluster等配置文件需要提供HTTP或HTTPS访问方式。可以把 FastCFS所有配置文件拷贝到 web server的根目录下:
+    * 例如：`cp -R /etc/fastcfs /path/www && cd /path/www && python3 -m http.server 8080`.
 * 熟悉如何设置 Kubernetes 并拥有一个可以工作的 Kubernetes 集群:
     * `kubelet` 和 `kube-apiserver` 需启用标志 `--allow-privileged=true`
     * 启用 `kube-apiserver` 特性门控 `--feature-gates=CSINodeInfo=true,CSIDriverRegistry=true`

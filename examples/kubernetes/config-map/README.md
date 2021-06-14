@@ -6,23 +6,28 @@ This example shows how to create a config map
 
 `clusterID` is virtualized by the user.
 
-`configURL` is a network path.
+`configURL` is an http/https address. FastCFS client, auth module, cluster and other configuration files need to provide HTTP or HTTPS access.
+
+The following is the directory structure and required configuration files:
 ```
 <configURL>
     |__ fastcfs
         |
+        |__ auth:
+        |    |__ auth.conf    
+        |    |__ client.conf
+        |    |__ cluster.conf
+        |
         |__ fcfs:
         |    |__ fuse.conf
         |
-        |__ fdir: FastDIR server
+        |__ fdir:
         |    |__ cluster.conf
-        |    |__ client.conf
         |
-        |__ fstore: faststore server
-            |__ cluster.conf
-            |__ client.conf
+        |__ fstore:
+             |__ cluster.conf
 ```
-e.g., if the `configURL` is `http://192.168.99.170:8080`, `fuse.conf` uses `http://192.168.99.170:8080/fastcfs/fcfs/fuse.conf` to obtain
+e.g., if the `configURL` is `http://192.168.99.170:8080`, the driver will pass `http://192.168.99.170:8080/fastcfs/fcfs/fuse.conf` to the FastCFS client.
 
 ## Usage
 
