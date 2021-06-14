@@ -59,7 +59,7 @@ By default, driver tolerates taint `CriticalAddonsOnly` and has `tolerationSecon
 Please see the compatibility matrix above before you deploy the driver
 
 ```sh
-kubectl apply -k "github.com/happyfish100/fastcfs-csi/deploy/kubernetes/overlays/dev/?ref=master"
+kubectl apply -k "github.com/happyfish100/fastcfs-csi/deploy/kubernetes/overlays/dev/?ref=main"
 ```
 
 Edit the configmap and replace the cluster config. [ConfigMap example](./examples/kubernetes/config-map/README.md)
@@ -72,6 +72,20 @@ Verify driver is running:
 ```sh
 kubectl get pods
 ```
+
+Alternatively, you could also install the driver using helm:
+
+Add the fastcfs-csi Helm repository:
+```sh
+helm repo add fastcfs-csi https://happyfish100.github.io/fastcfs-csi
+helm repo update
+```
+
+Then install a release of the driver using the chart
+```sh
+helm upgrade --install fastcfs-csi fastcfs-csi/fcfs-csi-driver
+```
+
 
 #### Deploy driver with debug mode
 To view driver debug logs, run the CSI driver with `-v=5` command line option
