@@ -1,8 +1,11 @@
-# Static Provisioning 
-This example shows how to create and consume persistent volume from exising FastCFS using static provisioning.
+# 静态供应
 
-## Usage
-1. Edit the PersistentVolume spec in [example manifest](./specs/example.yaml). Update `volumeHandle` with FastCFS pool name that you are going to use. 
+[English](./README.md) | 简体中文
+
+此示例演示如何使用静态配置从现有 FastCFS 创建和使用持久卷。
+
+## 使用
+1. 编辑 [example manifest](./specs/example.yaml) 中的 PersistentVolume 配置。 使用您要使用的 FastCFS poolName更新`volumeHandle`。
 
 ```yaml
 apiVersion: v1
@@ -11,14 +14,13 @@ metadata:
   name: test-pv
 spec:
   capacity:
-    storage: 4Gi
+    storage: 1Gi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
   storageClassName: ""
   csi:
     driver: fcfs.csi.vazmin.github.io
-    fsType: ext4
     volumeHandle: {volumeId}
     nodeStageSecretRef:
       name: csi-fcfs-secret
@@ -29,22 +31,22 @@ spec:
   persistentVolumeReclaimPolicy: Retain
 ```
 
-2. Deploy the example:
+2. 发布示例:
 ```sh
 kubectl apply -f specs/
 ```
 
-3. Verify application pod is running:
+3. 验证应用程序 pod 正在运行:
 ```sh
 kubectl describe po app
 ```
 
-4. Validate the pod successfully wrote data to the volume:
+4. 验证 pod 成功将数据写入卷:
 ```sh
 kubectl exec -it app cat /data/out.txt
 ```
 
-5. Cleanup resources:
+5. 清理资源:
 ```sh
 kubectl delete -f specs/
 ```

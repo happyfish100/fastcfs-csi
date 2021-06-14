@@ -1,4 +1,7 @@
 # Configuring StorageClass
+
+English | [简体中文](./README-zh_CN.md)
+
 This example shows how to configure Kubernetes storageclass to provision FastCFS volumes with various configuration parameters.
 
 ## Usage

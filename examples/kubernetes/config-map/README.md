@@ -1,4 +1,7 @@
 # Config Map
+
+English | [简体中文](./README-zh_CN.md)
+
 This example shows how to create a config map
 
 `clusterID` is virtualized by the user.
@@ -19,7 +22,7 @@ This example shows how to create a config map
             |__ cluster.conf
             |__ client.conf
 ```
-e.g., if get `fuse.conf` with `http://192.168.99.170:8080/fastcfs/fcfs/fuse.conf`. the `configURL` is `http://192.168.99.170:8080`
+e.g., if the `configURL` is `http://192.168.99.170:8080`, `fuse.conf` uses `http://192.168.99.170:8080/fastcfs/fcfs/fuse.conf` to obtain
 
 ## Usage
 
@@ -40,3 +43,12 @@ metadata:
   name: fcfs-csi-config-example
 ```
 
+2. Verify the ConfigMap is created:
+```sh
+kubectl get cm
+```
+
+3. Cleanup resources:
+```
+kubectl delete -f specs/
+```

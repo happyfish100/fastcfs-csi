@@ -21,7 +21,6 @@ type Mounter interface {
 	PathExists(path string) (bool, error)
 
 	FcfsMount(ctx context.Context, volOptions *fcfs.VolumeOptions, mountOptions *fcfs.MountOptionsSecrets) error
-
 }
 
 type NodeMounter struct {
@@ -42,9 +41,8 @@ func (n *NodeMounter) MakeDir(path string) error {
 }
 
 func (n *NodeMounter) PathExists(path string) (bool, error) {
-	panic("implement me")
+	return mountutils.PathExists(path)
 }
-
 
 func (n *NodeMounter) FcfsMount(ctx context.Context, volOptions *fcfs.VolumeOptions, mountOptions *fcfs.MountOptionsSecrets) error {
 

@@ -1,4 +1,7 @@
 ## Volume Resizing
+
+English | [简体中文](./README-zh_CN.md)
+
 This example shows how to resize FastCFS persistence volume using volume resizing features.
 
 ## Usage
