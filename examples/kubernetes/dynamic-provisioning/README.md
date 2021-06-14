@@ -20,5 +20,7 @@ kubectl exec -it app cat /data/out.txt
 
 4. Cleanup resources:
 ```
-kubectl delete -f specs/
+kubectl delete -f specs/pod.yaml
+kubectl delete -f specs/claim.yaml
+kubectl delete -f specs/storageclass.yaml
 ```

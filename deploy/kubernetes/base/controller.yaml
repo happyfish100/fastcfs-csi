@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/name: fcfs-csi-driver
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: fcfs-csi-controller

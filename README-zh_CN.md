@@ -59,7 +59,7 @@ kubectl apply -f secret.yaml
 在部署驱动程序之前，请参阅上面的兼容性矩阵
 
 ```sh
-kubectl apply -k "github.com/happyfish100/fastcfs-csi/deploy/kubernetes/overlays/dev/?ref=master"
+kubectl apply -k "github.com/happyfish100/fastcfs-csi/deploy/kubernetes/overlays/dev/?ref=main"
 ```
 
 修改ConfigMap, 并替换它。[ConfigMap 例子](./examples/kubernetes/config-map/README.md)
@@ -74,6 +74,21 @@ kubectl replace -f csiplugin-configmap.yaml
 ```sh
 kubectl get pods
 ```
+
+
+或者，您也可以使用 helm 安装驱动程序：
+
+添加 fastcfs-csi Helm 存储库：
+```sh
+helm repo add fastcfs-csi https://happyfish100.github.io/fastcfs-csi
+helm repo update
+```
+
+然后使用 chart 安装驱动程序的版本
+```sh
+helm upgrade --install fastcfs-csi fastcfs-csi/fcfs-csi-driver
+```
+
 
 #### 使用调试模式部署驱动程序
 要查看驱动程序调试日志，请使用 `-v=5` 命令行选项运行 CSI 驱动程序
