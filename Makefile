@@ -10,6 +10,11 @@ all: build
 
 BIN_OUTPUT=bin
 
+
+FASTCFS_VERSION=2.2.0
+FASTCFS_NAME=vazmin/fastcfs-fused
+FASTCFS_IMAGE=$(FASTCFS_NAME):v$(FASTCFS_VERSION)
+
 CSI_IMAGE_VERSION=v0.2.0
 CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),vazmin/fcfs-csi)
 CSI_IMAGE=$(CSI_IMAGE_NAME):$(CSI_IMAGE_VERSION)
@@ -57,7 +62,7 @@ build: $(CMDS:%=build-%)
 .PHONY: image-csi
 # image-csi: GOARCH ?= $(shell go env GOARCH 2>/dev/null)
 image-csi: .container-cmd
-	$(CONTAINER_CMD) build -t $(CSI_IMAGE) .
+	$(CONTAINER_CMD) build --build-arg FASTCFS_IMAGE=$(FASTCFS_IMAGE) -t $(CSI_IMAGE) .
 
 image-clean: .container-cmd
 	$(CONTAINER_CMD) image ls | grep $(CSI_IMAGE_VERSION) | grep $(CSI_IMAGE_NAME) | awk '{print $$3}' | xargs -r $(CONTAINER_CMD) image rm -f
@@ -74,6 +79,9 @@ kind-clean:
 
 local-deploy: image-clean build image-csi kind-load-image
 
+.PHONY: image-fastcfs
+image-fastcfs: .container-cmd
+	$(CONTAINER_CMD) build --build-arg FASTCFS_VERSION=FastCFS-fused-$(FASTCFS_VERSION)-1.el8.x86_64 -t $(FASTCFS_IMAGE) -f deploy/fastcfs-fused/Dockerfile .
 
 .PHONY: fcfsfused-proxy
 fcfsfused-proxy:
@@ -81,7 +89,7 @@ fcfsfused-proxy:
 
 .PHONY: fcfsfused-proxy-container
 fcfsfused-proxy-container:
-	docker build -t fcfsfused-proxy -f pkg/fcfsfused-proxy/Dockerfile .
+	docker build --build-arg FASTCFS_IMAGE=$(FASTCFS_IMAGE) -t vazmin/fcfsfused-proxy -f pkg/fcfsfused-proxy/Dockerfile .
 
 .PHONY: install-fcfsfused-proxy
 install-fcfsfused-proxy:
