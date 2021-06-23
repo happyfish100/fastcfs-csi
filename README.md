@@ -30,7 +30,7 @@ Following sections are Kubernetes specific. If you are Kubernetes user, use foll
 | v0.1.0                                 | ?     | yes   |
 
 ## Prerequisites
-* [FastCFS](https://github.com/happyfish100/FastCFS/) `v2.1.+ `
+* [FastCFS](https://github.com/happyfish100/FastCFS/) `v2.2.0 ` or later
 * Enable FastCFS Auth `auth_enabled = true`
 * Configuration files such as FastCFS client, auth module and cluster need to provide HTTP or HTTPS access. You can copy all configuration files of FastCFS to the root directory of the web server:
     * e.g: `cp -r /etc/fastcfs /path/www && cd /path/www && python3 -m http.server 8080`.

@@ -32,7 +32,7 @@ FastCFS 容器存储接口（CSI）驱动器为容器编排器（Container Orche
 
 
 ### 2.2. 先决条件
-* [FastCFS](https://github.com/happyfish100/FastCFS/) `v2.1.+ `
+* [FastCFS](https://github.com/happyfish100/FastCFS/) `v2.2.0` 或更新版本
 * FastCFS 启用验证模块`auth_enabled = true`
 * FastCFS 客户端、auth 模块和 cluster 等配置文件需要提供 HTTP 或 HTTPS 访问方式。可以把 FastCFS 所有配置文件拷贝到 web server 的根目录下:
     * 例如：`cp -R /etc/fastcfs /path/www && cd /path/www && python3 -m http.server 8080`.
