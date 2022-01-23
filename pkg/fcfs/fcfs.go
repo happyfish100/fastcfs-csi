@@ -18,10 +18,12 @@ package fcfs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
+	"os/exec"
 	"strings"
 	"time"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
@@ -57,7 +59,6 @@ type VolumeOptions struct {
 	BaseConfigURL       string
 	ClusterID           string
 	PreProvisioned      bool
-
 }
 
 func (vo *VolumeOptions) getPoolConfigURL() string {
@@ -105,8 +106,18 @@ func (c *cfs) VolumeExists(ctx context.Context, baseURL, volumeName string, cr *
 		"plist", cr.UserName, volumeName,
 	}
 	output, err := common.ExecPoolCommand(ctx, args...)
+	res := string(output)
+	if exitError, ok := err.(*exec.ExitError); ok {
+		if exitError.ExitCode() == common.CmdExitCode {
+			return false, nil
+		} else {
+			klog.Warningf("[FastCFS] failed to plist FastCFS Volume %s", res)
+			return true, errors.New(res)
+		}
+	}
+	// FastCFS <= 3.1.0-1
 	if len(output) > 0 {
-		if strings.Contains(string(output), fmt.Sprintf("%s not exist", volumeName)) {
+		if strings.Contains(res, fmt.Sprintf("%s not exist", volumeName)) {
 			return false, nil
 		}
 	}

@@ -17,6 +17,10 @@ limitations under the License.
 package common
 
 const (
+	CmdExitCode = 2
+)
+
+const (
 	KiB = 1024
 	MiB = KiB * 1024
 	GiB = MiB * 1024
