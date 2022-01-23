@@ -15,12 +15,12 @@ parameters:
   csi.storage.k8s.io/node-publish-secret-name: csi-fcfs-secret
   csi.storage.k8s.io/node-publish-secret-namespace: default
   clusterID: virtual-cluster-id-1
-  domainLabels: "topology.fcfs.csi.vazmin.github.io/hostname"
-allowedTopologies:
-- matchLabelExpressions:
-  - key: topology.fcfs.csi.vazmin.github.io/hostname
-    values:
-    - kind-control-plane
+#  domainLabels: "topology.fcfs.csi.vazmin.github.io/hostname"
+#allowedTopologies:
+#- matchLabelExpressions:
+#  - key: topology.fcfs.csi.vazmin.github.io/hostname
+#    values:
+#    - kind-control-plane
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
