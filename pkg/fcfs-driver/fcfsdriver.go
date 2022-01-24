@@ -41,7 +41,7 @@ const (
 
 // NewMetadataFunc is a variable for the cloud.NewMetadata function that can
 // be overwritten in unit tests.
-var NewMetadataFunc = fcfs.NewMetadata
+var NewMetadataFunc = NewMetadata
 
 func NewFcfsDriver() *fcfsDriver {
 	return &fcfsDriver{}
@@ -53,7 +53,7 @@ func NewIdentityServer(d *csicommon.CSIDriver) *identityServer {
 	}
 }
 
-func NewNodeServer(d *csicommon.CSIDriver, enableFcfsFusedProxy bool, fcfsFusedEndpoint string, fcfsFusedProxyConnTimout int, topology map[string]string) *nodeServer {
+func NewNodeServer(d *csicommon.CSIDriver, ms MetadataService, enableFcfsFusedProxy bool, fcfsFusedEndpoint string, fcfsFusedProxyConnTimout int, topology map[string]string) *nodeServer {
 	mountOptions := &fcfs.MountOptions{
 		EnableFcfsFusedProxy:     enableFcfsFusedProxy,
 		FcfsFusedEndpoint:        fcfsFusedEndpoint,
@@ -68,6 +68,7 @@ func NewNodeServer(d *csicommon.CSIDriver, enableFcfsFusedProxy bool, fcfsFusedE
 		mounter:           nodeMounter,
 		volumeLocks:       common.NewVolumeLocks(),
 		mountOptions:      mountOptions,
+		ms:                ms,
 	}
 }
 
@@ -114,7 +115,7 @@ func (fc *fcfsDriver) Run(conf *common.Config) {
 			csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 			csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
 		})
-		fc.ns = NewNodeServer(fc.driver, conf.EnableFcfsFusedProxy, conf.FcfsFusedProxyEndpoint, conf.FcfsFusedProxyConnTimout, topology)
+		fc.ns = NewNodeServer(fc.driver, metadataSrv, conf.EnableFcfsFusedProxy, conf.FcfsFusedProxyEndpoint, conf.FcfsFusedProxyConnTimout, topology)
 	}
 
 	s := csicommon.NewNonBlockingGRPCServer()

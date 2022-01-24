@@ -6,4 +6,4 @@ metadata:
   name: fcfs.csi.vazmin.github.io
 spec:
   attachRequired: true
-  podInfoOnMount: false
+  podInfoOnMount: true

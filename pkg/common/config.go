@@ -43,6 +43,8 @@ type Config struct {
 	FcfsFusedProxyEndpoint   string
 	EnableFcfsFusedProxy     bool
 	FcfsFusedProxyConnTimout int
+
+	RemountCorrupted bool
 }
 
 type ClusterInfo struct {

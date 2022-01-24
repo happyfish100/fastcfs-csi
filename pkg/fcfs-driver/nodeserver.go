@@ -19,14 +19,20 @@ package driver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
 	"k8s.io/mount-utils"
 	"os"
+	"sync"
+	"time"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
 	csicommon "vazmin.github.io/fastcfs-csi/pkg/csi-common"
 	"vazmin.github.io/fastcfs-csi/pkg/fcfs"
@@ -37,6 +43,7 @@ type nodeServer struct {
 	mountOptions *fcfs.MountOptions
 	mounter      Mounter
 	volumeLocks  *common.VolumeLocks
+	ms           MetadataService
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
@@ -61,7 +68,6 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 		klog.V(2).Infof("NodeStageVolume: volume %s is already mounted on %s", volumeId, stagingTargetPath)
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
-
 
 	volOptions, err := NewVolOptionsFromVolID(volumeId, nil)
 
@@ -343,7 +349,183 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 	return !notMnt, nil
 }
 
+type persistentVolumeWithPods struct {
+	*corev1.PersistentVolume
+	pods        []*corev1.Pod
+	credentials map[string]string
+}
+
+func (p *persistentVolumeWithPods) appendPodUnique(new *corev1.Pod) {
+	for _, old := range p.pods {
+		if old.UID == new.UID {
+			return
+		}
+	}
+
+	p.pods = append(p.pods, new)
+}
+
+// getAttachedPVWithPodsOnNode finds all persistent volume objects as well as the related pods in the node.
+func (ns *nodeServer) getAttachedPVWithPodsOnNode(ctx context.Context, nodeName string) ([]*persistentVolumeWithPods, error) {
+	pvs, err := ns.ms.GetAttachedPVOnNode(ctx, nodeName, ns.Driver.Name)
+	if err != nil {
+		return nil, fmt.Errorf("getAttachedPVOnNode faied: %v", err)
+	}
+	scl, err := ns.ms.GetStoreClassOnDriver(ctx, ns.Driver.Name)
+	if err != nil {
+		return nil, fmt.Errorf("GetStoreClassOnDriver failed: %v", err)
+	}
+	claimedPVWithPods := make(map[string]*persistentVolumeWithPods, len(pvs))
+	crs := make(map[string]map[string]string)
+	for _, pv := range pvs {
+		if pv.Spec.ClaimRef == nil {
+			continue
+		}
+		sr, err := getSecretReferenceByStorageClassOrPV(pv, scl)
+		if err != nil {
+			klog.Warningf("get secret reference failed: %v", err)
+			continue
+		}
+		if sr == nil {
+			continue
+		}
+		volumeWithPods := &persistentVolumeWithPods{
+			PersistentVolume: pv,
+		}
+		srKey := fmt.Sprintf("%s/%s", sr.Namespace, sr.Name)
+		if cr, ok := crs[srKey]; ok {
+			volumeWithPods.credentials = cr
+		} else {
+			volumeWithPods.credentials, err = ns.ms.GetCredentials(ctx, sr)
+			if err != nil {
+				klog.Warningf("GetCredentials failed: %v", err)
+			}
+		}
+		pvcKey := fmt.Sprintf("%s/%s", pv.Spec.ClaimRef.Namespace, pv.Spec.ClaimRef.Name)
+		claimedPVWithPods[pvcKey] = volumeWithPods
+	}
+
+	allPodsOnNode, err := ns.ms.GetPodsOnNode(ctx, nodeName)
+	if err != nil {
+		return nil, fmt.Errorf("list pods failed: %v", err)
+	}
+
+	for i := range allPodsOnNode.Items {
+		pod := allPodsOnNode.Items[i]
+
+		for _, volume := range pod.Spec.Volumes {
+			if volume.PersistentVolumeClaim == nil {
+				continue
+			}
+			pvcKey := fmt.Sprintf("%s/%s", pod.Namespace, volume.PersistentVolumeClaim.ClaimName)
+			pvWithPods, ok := claimedPVWithPods[pvcKey]
+			if !ok {
+				continue
+			}
+
+			pvWithPods.appendPodUnique(&pod)
+		}
+	}
+
+	ret := make([]*persistentVolumeWithPods, 0, len(claimedPVWithPods))
+	for _, v := range claimedPVWithPods {
+		if len(v.pods) != 0 {
+			ret = append(ret, v)
+		}
+	}
+
+	return ret, nil
+}
+
+// getSecretReferenceByStorageClassOrPV
+func getSecretReferenceByStorageClassOrPV(pv *corev1.PersistentVolume, scl *storagev1.StorageClassList) (*corev1.SecretReference, error) {
+	if len(pv.Spec.StorageClassName) > 0 {
+		for _, sc := range scl.Items {
+			if pv.Namespace == sc.Namespace && pv.Spec.StorageClassName == sc.Name {
+				return getNodeStageSecretReference(sc.Parameters, pv.GetName(), &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pv.Spec.ClaimRef.Name,
+						Namespace: pv.Spec.ClaimRef.Namespace,
+					},
+				})
+			}
+		}
+	}
+	if pv.Spec.CSI != nil {
+		return pv.Spec.CSI.NodeStageSecretRef, nil
+	}
+	return nil, nil
+}
+
 func IsCorruptedDir(dir string) bool {
 	_, pathErr := mount.PathExists(dir)
 	return pathErr != nil && mount.IsCorruptedMnt(pathErr)
+}
+
+// remountDamagedVolumes try to remount all the volumes damaged during csi-node restart,
+// includes the GlobalMount per pv and BindMount per pod.
+func (ns *nodeServer) remountDamagedVolumes(ctx context.Context, nodeName string) {
+	startTime := time.Now()
+
+	pvWithPods, err := ns.getAttachedPVWithPodsOnNode(ctx, nodeName)
+	if err != nil {
+		klog.Warningf("get attached pv with pods info failed: %v\n", err)
+		return
+	}
+
+	if len(pvWithPods) == 0 {
+		return
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(pvWithPods))
+	for _, pvp := range pvWithPods {
+		go func(p *persistentVolumeWithPods) {
+			defer wg.Done()
+
+			// remount globalmount
+			//globalMountPath := filepath.Join(ns.KubeletRootDir, fmt.Sprintf("/plugins/kubernetes.io/csi/pv/%s/globalmount", p.Name))
+			//if err := ns.mount(globalMountPath, p.Name, p.Spec.CSI.VolumeAttributes); err != nil {
+			//	klog.Warningf("remount damaged volume %q to path %q failed: %v\n", p.Name, globalMountPath, err)
+			//	return
+			//}
+			//klog.Infof("remount damaged volume %q to global mount path %q succeed.", p.Name, globalMountPath)
+			//
+			//// bind globalmount to pods
+			//for _, pod := range p.pods {
+			//	podDir := filepath.Join(ns.KubeletRootDir, "/pods/", string(pod.UID))
+			//	mountOptions := []string{"bind", "_netdev"}
+			//	if
+			//	podMountPath := filepath.Join(podDir, fmt.Sprintf("/volumes/kubernetes.io~csi/%s/mount", p.Name))
+			//	if err := bindMount(globalMountPath, podMountPath); err != nil {
+			//		klog.Warningf("rebind damaged volume %q to path %q failed: %v\n", p.Name, podMountPath, err)
+			//		continue
+			//	}
+			//	klog.Infof("rebind damaged volume %q to pod mount path %q succeed.", p.Name, podMountPath)
+			//
+			//	// bind pod volume to subPath mount point
+			//	for _, container := range pod.Spec.Containers {
+			//		for i, volumeMount := range container.VolumeMounts {
+			//			if volumeMount.SubPath == "" {
+			//				continue
+			//			}
+			//
+			//			source := filepath.Join(podMountPath, volumeMount.SubPath)
+			//
+			//			// ref: https://github.com/kubernetes/kubernetes/blob/v1.22.0/pkg/volume/util/subpath/subpath_linux.go#L158
+			//			subMountPath := filepath.Join(podDir, "volume-subpaths", p.Name, container.Name, strconv.Itoa(i))
+			//			if err := bindMount(source, subMountPath); err != nil {
+			//				klog.Warningf("rebind damaged volume %q to sub mount path %q failed: %v\n", p.Name, subMountPath, err)
+			//				continue
+			//			}
+			//
+			//			klog.Infof("rebind damaged volume %q to sub mount path %q succeed.", p.Name, subMountPath)
+			//		}
+			//	}
+			//}
+		}(pvp)
+	}
+	wg.Wait()
+
+	klog.Infof("remount process finished cost %d ms", time.Since(startTime).Milliseconds())
 }

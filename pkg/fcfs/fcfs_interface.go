@@ -17,21 +17,15 @@ limitations under the License.
 package fcfs
 
 import (
-    "context"
-    "vazmin.github.io/fastcfs-csi/pkg/common"
+	"context"
+	"vazmin.github.io/fastcfs-csi/pkg/common"
 )
 
 type Cfs interface {
-    CreateVolume(ctx context.Context, volOptions *VolumeOptions, cr *common.Credentials) (vol *Volume, err error)
-    DeleteVolume(ctx context.Context, volOptions *VolumeOptions, cr *common.Credentials) (err error)
-    ResizeVolume(ctx context.Context, volOptions *VolumeOptions, cr *common.Credentials) (newSize int64, err error)
-    GetVolumeByID(ctx context.Context, volumeID string) (vol *Volume, err error)
-    VolumeExists(ctx context.Context, configURL , volumeName string, cr *common.Credentials) (bool, error)
-    MountVolume(ctx context.Context, volOptions *VolumeOptions, mountOptions *MountOptionsSecrets, cr *common.Credentials) error
+	CreateVolume(ctx context.Context, volOptions *VolumeOptions, cr *common.Credentials) (vol *Volume, err error)
+	DeleteVolume(ctx context.Context, volOptions *VolumeOptions, cr *common.Credentials) (err error)
+	ResizeVolume(ctx context.Context, volOptions *VolumeOptions, cr *common.Credentials) (newSize int64, err error)
+	GetVolumeByID(ctx context.Context, volumeID string) (vol *Volume, err error)
+	VolumeExists(ctx context.Context, configURL, volumeName string, cr *common.Credentials) (bool, error)
+	MountVolume(ctx context.Context, volOptions *VolumeOptions, mountOptions *MountOptionsSecrets, cr *common.Credentials) error
 }
-
-
-type MetadataService interface {
-    GetLabels() map[string]string
-}
-
