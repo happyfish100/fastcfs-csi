@@ -46,6 +46,8 @@ func initFlag() {
 	flag.StringVar(&conf.FcfsFusedProxyEndpoint, "fcfsfused-proxy-endpoint", "unix://tmp/fcfsfused-proxy.sock", "fcfsfused-proxy endpoint")
 	flag.BoolVar(&conf.EnableFcfsFusedProxy, "enable-fcfsfused-proxy", false, "enable fcfsfused-proxy")
 	flag.IntVar(&conf.FcfsFusedProxyConnTimout, "fcfsfused-proxy-conn-timeout", 5, "fcfsfused proxy connection timeout(seconds)")
+	flag.BoolVar(&conf.RemountCorrupted, "remount-corrupted", true, "remount when csi restart")
+	flag.StringVar(&conf.KubeletRootDir, "kubelet-root-dir", "/var/lib/kubelet", "kubelet root dir")
 
 	klog.InitFlags(nil)
 	if err := flag.Set("logtostderr", "true"); err != nil {

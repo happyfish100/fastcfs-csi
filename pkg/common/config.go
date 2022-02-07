@@ -45,6 +45,7 @@ type Config struct {
 	FcfsFusedProxyConnTimout int
 
 	RemountCorrupted bool
+	KubeletRootDir   string
 }
 
 type ClusterInfo struct {

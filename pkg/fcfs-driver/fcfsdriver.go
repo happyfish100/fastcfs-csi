@@ -53,12 +53,7 @@ func NewIdentityServer(d *csicommon.CSIDriver) *identityServer {
 	}
 }
 
-func NewNodeServer(d *csicommon.CSIDriver, ms MetadataService, enableFcfsFusedProxy bool, fcfsFusedEndpoint string, fcfsFusedProxyConnTimout int, topology map[string]string) *nodeServer {
-	mountOptions := &fcfs.MountOptions{
-		EnableFcfsFusedProxy:     enableFcfsFusedProxy,
-		FcfsFusedEndpoint:        fcfsFusedEndpoint,
-		FcfsFusedProxyConnTimout: fcfsFusedProxyConnTimout,
-	}
+func NewNodeServer(d *csicommon.CSIDriver, ms MetadataService, kubeletRootDir string, mountOptions *fcfs.MountOptions, topology map[string]string) *nodeServer {
 	nodeMounter, err := newNodeMounter()
 	if err != nil {
 		panic(err)
@@ -69,6 +64,7 @@ func NewNodeServer(d *csicommon.CSIDriver, ms MetadataService, enableFcfsFusedPr
 		volumeLocks:       common.NewVolumeLocks(),
 		mountOptions:      mountOptions,
 		ms:                ms,
+		kubeletRootDir:    kubeletRootDir,
 	}
 }
 
@@ -115,7 +111,12 @@ func (fc *fcfsDriver) Run(conf *common.Config) {
 			csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 			csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
 		})
-		fc.ns = NewNodeServer(fc.driver, metadataSrv, conf.EnableFcfsFusedProxy, conf.FcfsFusedProxyEndpoint, conf.FcfsFusedProxyConnTimout, topology)
+		mountOptions := &fcfs.MountOptions{
+			EnableFcfsFusedProxy:     conf.EnableFcfsFusedProxy,
+			FcfsFusedEndpoint:        conf.FcfsFusedProxyEndpoint,
+			FcfsFusedProxyConnTimout: conf.FcfsFusedProxyConnTimout,
+		}
+		fc.ns = NewNodeServer(fc.driver, metadataSrv, conf.KubeletRootDir, mountOptions, topology)
 	}
 
 	s := csicommon.NewNonBlockingGRPCServer()

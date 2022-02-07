@@ -18,7 +18,6 @@ package driver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -31,6 +30,8 @@ import (
 	"k8s.io/kubernetes/pkg/volume"
 	"k8s.io/mount-utils"
 	"os"
+	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
@@ -40,10 +41,11 @@ import (
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
-	mountOptions *fcfs.MountOptions
-	mounter      Mounter
-	volumeLocks  *common.VolumeLocks
-	ms           MetadataService
+	mountOptions   *fcfs.MountOptions
+	mounter        Mounter
+	volumeLocks    *common.VolumeLocks
+	ms             MetadataService
+	kubeletRootDir string
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
@@ -69,15 +71,9 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStag
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
-	volOptions, err := NewVolOptionsFromVolID(volumeId, nil)
-
+	volOptions, err := NewVolOptionsFromVolIDOrStatic(volumeId, request.GetVolumeContext())
 	if err != nil {
-		if errors.Is(err, common.ErrInvalidVolID) {
-			volOptions, err = NewVolOptionsFromStatic(volumeId, request.GetVolumeContext())
-		}
-	}
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "new FcfsVolume err %v", err)
+		return nil, status.Errorf(codes.Internal, "New FastCFS Volume Options ERR %v", err)
 	}
 	volOptions.VolPath = stagingTargetPath
 
@@ -462,9 +458,9 @@ func IsCorruptedDir(dir string) bool {
 	return pathErr != nil && mount.IsCorruptedMnt(pathErr)
 }
 
-// remountDamagedVolumes try to remount all the volumes damaged during csi-node restart,
+// remountCorruptedVolumes try to remount all the volumes corrupted during csi-node restart,
 // includes the GlobalMount per pv and BindMount per pod.
-func (ns *nodeServer) remountDamagedVolumes(ctx context.Context, nodeName string) {
+func (ns *nodeServer) remountCorruptedVolumes(ctx context.Context, nodeName string) {
 	startTime := time.Now()
 
 	pvWithPods, err := ns.getAttachedPVWithPodsOnNode(ctx, nodeName)
@@ -482,47 +478,65 @@ func (ns *nodeServer) remountDamagedVolumes(ctx context.Context, nodeName string
 	for _, pvp := range pvWithPods {
 		go func(p *persistentVolumeWithPods) {
 			defer wg.Done()
+			volumeId := p.Spec.CSI.VolumeHandle
+			klog.Infof("remount ")
+			// remount stagingTargetPath
+			stagingTargetPath := filepath.Join(ns.kubeletRootDir, fmt.Sprintf("/plugins/kubernetes.io/csi/pv/%s/globalmount", p.Name))
 
-			// remount globalmount
-			//globalMountPath := filepath.Join(ns.KubeletRootDir, fmt.Sprintf("/plugins/kubernetes.io/csi/pv/%s/globalmount", p.Name))
-			//if err := ns.mount(globalMountPath, p.Name, p.Spec.CSI.VolumeAttributes); err != nil {
-			//	klog.Warningf("remount damaged volume %q to path %q failed: %v\n", p.Name, globalMountPath, err)
-			//	return
-			//}
-			//klog.Infof("remount damaged volume %q to global mount path %q succeed.", p.Name, globalMountPath)
-			//
-			//// bind globalmount to pods
-			//for _, pod := range p.pods {
-			//	podDir := filepath.Join(ns.KubeletRootDir, "/pods/", string(pod.UID))
-			//	mountOptions := []string{"bind", "_netdev"}
-			//	if
-			//	podMountPath := filepath.Join(podDir, fmt.Sprintf("/volumes/kubernetes.io~csi/%s/mount", p.Name))
-			//	if err := bindMount(globalMountPath, podMountPath); err != nil {
-			//		klog.Warningf("rebind damaged volume %q to path %q failed: %v\n", p.Name, podMountPath, err)
-			//		continue
-			//	}
-			//	klog.Infof("rebind damaged volume %q to pod mount path %q succeed.", p.Name, podMountPath)
-			//
-			//	// bind pod volume to subPath mount point
-			//	for _, container := range pod.Spec.Containers {
-			//		for i, volumeMount := range container.VolumeMounts {
-			//			if volumeMount.SubPath == "" {
-			//				continue
-			//			}
-			//
-			//			source := filepath.Join(podMountPath, volumeMount.SubPath)
-			//
-			//			// ref: https://github.com/kubernetes/kubernetes/blob/v1.22.0/pkg/volume/util/subpath/subpath_linux.go#L158
-			//			subMountPath := filepath.Join(podDir, "volume-subpaths", p.Name, container.Name, strconv.Itoa(i))
-			//			if err := bindMount(source, subMountPath); err != nil {
-			//				klog.Warningf("rebind damaged volume %q to sub mount path %q failed: %v\n", p.Name, subMountPath, err)
-			//				continue
-			//			}
-			//
-			//			klog.Infof("rebind damaged volume %q to sub mount path %q succeed.", p.Name, subMountPath)
-			//		}
-			//	}
-			//}
+			volOptions, err := NewVolOptionsFromVolIDOrStatic(volumeId, p.Spec.CSI.VolumeAttributes)
+			if err != nil {
+				klog.Warningf("New corrupted volume options %q error: %v\n", volumeId, err)
+				return
+			}
+			volOptions.VolPath = stagingTargetPath
+
+			fcfsMountOptions := &fcfs.MountOptionsSecrets{
+				MountOptions: ns.mountOptions,
+				Secrets:      p.credentials,
+			}
+
+			if err = ns.mounter.FcfsMount(ctx, volOptions, fcfsMountOptions); err != nil {
+				klog.Warningf("remount corrupted volume %q to path %q failed: %v\n", p.Name, stagingTargetPath, err)
+				return
+			}
+			klog.Infof("remount corrupted volume %q to global mount path %q succeed.", p.Name, stagingTargetPath)
+			// TODO: mount options less?
+			mountOptions := []string{"bind", "_netdev"}
+			if p.Spec.CSI.ReadOnly {
+				mountOptions = append(mountOptions, "ro")
+			}
+			// bind globalmount to pods
+			for _, pod := range p.pods {
+				podDir := filepath.Join(ns.kubeletRootDir, "/pods/", string(pod.UID))
+
+				targetPath := filepath.Join(podDir, fmt.Sprintf("/volumes/kubernetes.io~csi/%s/mount", p.Name))
+
+				if err := ns.mounter.Mount(stagingTargetPath, targetPath, p.Spec.CSI.FSType, mountOptions); err != nil {
+					klog.Warningf("rebind corrupted volume %q to path %q failed: %v\n", p.Name, targetPath, err)
+					continue
+				}
+				klog.Infof("rebind corrupted volume %q to pod mount path %q succeed.", p.Name, targetPath)
+
+				// bind pod volume to subPath mount point
+				for _, container := range pod.Spec.Containers {
+					for i, volumeMount := range container.VolumeMounts {
+						if volumeMount.SubPath == "" {
+							continue
+						}
+
+						source := filepath.Join(targetPath, volumeMount.SubPath)
+
+						// ref: https://github.com/kubernetes/kubernetes/blob/v1.22.0/pkg/volume/util/subpath/subpath_linux.go#L158
+						subMountPath := filepath.Join(podDir, "volume-subpaths", p.Name, container.Name, strconv.Itoa(i))
+						if err := ns.mounter.Mount(source, subMountPath, p.Spec.CSI.FSType, mountOptions); err != nil {
+							klog.Warningf("rebind corrupted volume %q to sub mount path %q failed: %v\n", p.Name, subMountPath, err)
+							continue
+						}
+
+						klog.Infof("rebind corrupted volume %q to sub mount path %q succeed.", p.Name, subMountPath)
+					}
+				}
+			}
 		}(pvp)
 	}
 	wg.Wait()

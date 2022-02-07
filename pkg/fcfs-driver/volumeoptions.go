@@ -39,7 +39,6 @@ import (
 //	  w:  write only
 //	  rw: read and write
 
-
 func newVolumeOptions(ctx context.Context, req *csi.CreateVolumeRequest, requestName string, cr *common.Credentials) (*fcfs.VolumeOptions, error) {
 	parameters := req.GetParameters()
 	clusterID := parameters["clusterID"]
@@ -74,7 +73,6 @@ func newVolumeOptions(ctx context.Context, req *csi.CreateVolumeRequest, request
 	}, nil
 }
 
-
 func NewVolOptionsFromVolID(volID string, cr *csi.CapacityRange) (*fcfs.VolumeOptions, error) {
 	cid := &common.CSIIdentifier{}
 	if err := cid.DecomposeCSIID(volID); err != nil {
@@ -96,7 +94,6 @@ func NewVolOptionsFromVolID(volID string, cr *csi.CapacityRange) (*fcfs.VolumeOp
 	}
 	return vol, nil
 }
-
 
 func NewVolOptionsFromStatic(volID string, options map[string]string) (*fcfs.VolumeOptions, error) {
 
@@ -136,4 +133,15 @@ func NewVolOptionsFromStatic(volID string, options map[string]string) (*fcfs.Vol
 	}
 
 	return vol, nil
+}
+
+func NewVolOptionsFromVolIDOrStatic(volumeId string, volumeContext map[string]string) (*fcfs.VolumeOptions, error) {
+	volOptions, err := NewVolOptionsFromVolID(volumeId, nil)
+
+	if err != nil {
+		if errors.Is(err, common.ErrInvalidVolID) {
+			volOptions, err = NewVolOptionsFromStatic(volumeId, volumeContext)
+		}
+	}
+	return volOptions, err
 }
