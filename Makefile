@@ -79,6 +79,18 @@ kind-clean:
 
 local-deploy: image-clean build image-csi kind-load-image
 
+node-restart:
+	kubectl get po | grep fcfs-csi-node |awk '{print $$1}'| xargs -i kubectl delete po {}
+
+node-log:
+	kubectl get po | grep fcfs-csi-node | awk '{print $$1}'| xargs -i kubectl logs {} fcfs-plugin -f
+
+controller-restart:
+	kubectl get po | grep fcfs-csi-controller |awk '{print $$1}'| xargs -i kubectl delete po {}
+
+controller-log:
+	kubectl get po | grep fcfs-csi-controller |awk '{print $$1}'| xargs -i kubectl logs {} fcfs-plugin -f
+
 .PHONY: image-fastcfs
 image-fastcfs: .container-cmd
 	$(CONTAINER_CMD) build --build-arg FASTCFS_VERSION=FastCFS-fused-$(FASTCFS_VERSION)-1.el8.x86_64 -t $(FASTCFS_IMAGE) -f deploy/fastcfs-fused/Dockerfile .
