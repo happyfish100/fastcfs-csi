@@ -326,7 +326,7 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 		// testing original mount point, make sure the mount link is valid
 		_, err := ioutil.ReadDir(target)
 		if err == nil {
-			klog.V(2).Infof("already mounted to target %s", target)
+			klog.Infof("already mounted to target %s", target)
 			return !notMnt, nil
 		}
 		// mount link is invalid, now unmount and remount later
@@ -434,9 +434,9 @@ func (ns *nodeServer) getAttachedPVWithPodsOnNode(ctx context.Context, nodeName 
 }
 
 // getSecretReferenceByStorageClassOrPV
-func getSecretReferenceByStorageClassOrPV(pv *corev1.PersistentVolume, scl *storagev1.StorageClassList) (*corev1.SecretReference, error) {
+func getSecretReferenceByStorageClassOrPV(pv *corev1.PersistentVolume, scl []*storagev1.StorageClass) (*corev1.SecretReference, error) {
 	if len(pv.Spec.StorageClassName) > 0 {
-		for _, sc := range scl.Items {
+		for _, sc := range scl {
 			if pv.Namespace == sc.Namespace && pv.Spec.StorageClassName == sc.Name {
 				return getNodeStageSecretReference(sc.Parameters, pv.GetName(), &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
@@ -479,10 +479,9 @@ func (ns *nodeServer) remountCorruptedVolumes(ctx context.Context, nodeName stri
 		go func(p *persistentVolumeWithPods) {
 			defer wg.Done()
 			volumeId := p.Spec.CSI.VolumeHandle
-			klog.Infof("remount ")
 			// remount stagingTargetPath
 			stagingTargetPath := filepath.Join(ns.kubeletRootDir, fmt.Sprintf("/plugins/kubernetes.io/csi/pv/%s/globalmount", p.Name))
-
+			ns.ensureMountPoint(stagingTargetPath)
 			volOptions, err := NewVolOptionsFromVolIDOrStatic(volumeId, p.Spec.CSI.VolumeAttributes)
 			if err != nil {
 				klog.Warningf("New corrupted volume options %q error: %v\n", volumeId, err)
@@ -511,7 +510,15 @@ func (ns *nodeServer) remountCorruptedVolumes(ctx context.Context, nodeName stri
 
 				targetPath := filepath.Join(podDir, fmt.Sprintf("/volumes/kubernetes.io~csi/%s/mount", p.Name))
 
-				if err := ns.mounter.Mount(stagingTargetPath, targetPath, p.Spec.CSI.FSType, mountOptions); err != nil {
+				//if err := mount.CleanupMountPoint(targetPath, ns.mounter, false); err != nil {
+				//	klog.Warningf( "CleanupMountPoint fail, stagingTargetPath: %v error: %v", targetPath, err)
+				//}
+				//
+				//if err := os.MkdirAll(targetPath, 0750); err != nil {
+				//	klog.Warningf("createMountPoint fail, stagingTargetPath: %v error: %v", targetPath, err)
+				//}
+				if err := bindMount(ctx, stagingTargetPath, targetPath, mountOptions); err != nil {
+					//if err := ns.mounter.Mount(stagingTargetPath, targetPath, p.Spec.CSI.FSType, mountOptions); err != nil {
 					klog.Warningf("rebind corrupted volume %q to path %q failed: %v\n", p.Name, targetPath, err)
 					continue
 				}

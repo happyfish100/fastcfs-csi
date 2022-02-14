@@ -17,6 +17,7 @@ limitations under the License.
 package driver
 
 import (
+	"context"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/klog/v2"
 	"vazmin.github.io/fastcfs-csi/pkg/common"
@@ -117,6 +118,9 @@ func (fc *fcfsDriver) Run(conf *common.Config) {
 			FcfsFusedProxyConnTimout: conf.FcfsFusedProxyConnTimout,
 		}
 		fc.ns = NewNodeServer(fc.driver, metadataSrv, conf.KubeletRootDir, mountOptions, topology)
+		if conf.RemountCorrupted {
+			fc.ns.remountCorruptedVolumes(context.TODO(), conf.NodeID)
+		}
 	}
 
 	s := csicommon.NewNonBlockingGRPCServer()

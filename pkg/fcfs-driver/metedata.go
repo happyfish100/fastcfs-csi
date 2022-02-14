@@ -33,7 +33,7 @@ type MetadataService interface {
 	GetLabels() map[string]string
 	GetAttachedPVOnNode(context context.Context, nodeName string, driverName string) ([]*corev1.PersistentVolume, error)
 	GetPodsOnNode(context context.Context, nodeName string) (*corev1.PodList, error)
-	GetStoreClassOnDriver(ctx context.Context, driverName string) (*storagev1.StorageClassList, error)
+	GetStoreClassOnDriver(ctx context.Context, driverName string) ([]*storagev1.StorageClass, error)
 	GetCredentials(ctx context.Context, ref *corev1.SecretReference) (map[string]string, error)
 }
 
@@ -135,10 +135,19 @@ func (m *Metadata) GetPodsOnNode(ctx context.Context, nodeName string) (*corev1.
 	})
 }
 
-func (m *Metadata) GetStoreClassOnDriver(ctx context.Context, driverName string) (*storagev1.StorageClassList, error) {
-	return m.clientset.StorageV1().StorageClasses().List(ctx, metav1.ListOptions{
-		FieldSelector: "provisioner=" + driverName,
-	})
+func (m *Metadata) GetStoreClassOnDriver(ctx context.Context, driverName string) ([]*storagev1.StorageClass, error) {
+	scl, err := m.clientset.StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	var scItems []*storagev1.StorageClass
+	for _, item := range scl.Items {
+		if item.Provisioner != driverName {
+			continue
+		}
+		scItems = append(scItems, &item)
+	}
+	return scItems, nil
 }
 
 func (m *Metadata) GetCredentials(ctx context.Context, ref *corev1.SecretReference) (map[string]string, error) {

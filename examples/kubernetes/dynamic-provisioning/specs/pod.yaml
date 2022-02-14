@@ -10,6 +10,7 @@ spec:
     args: ["-c", "while true; do echo $(date -u) >> /data/out.txt; sleep 5; done"]
     volumeMounts:
     - name: persistent-storage
+#      mountPropagation: HostToContainer
       mountPath: /data
   volumes:
   - name: persistent-storage

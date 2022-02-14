@@ -31,13 +31,13 @@ func TestServerMountAzureBlob(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		args    string
+		args    []string
 		secrets map[string]string
 		code    codes.Code
 	}{
 		{
 			name:    "failed_mount",
-			args:    "--hello",
+			args:    []string{"--hello"},
 			secrets: map[string]string{"hello": ""},
 			code:    codes.InvalidArgument,
 		},

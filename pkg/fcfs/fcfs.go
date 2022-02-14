@@ -57,7 +57,6 @@ type VolumeOptions struct {
 	BaseConfigURL       string
 	ClusterID           string
 	PreProvisioned      bool
-
 }
 
 func (vo *VolumeOptions) getPoolConfigURL() string {
@@ -166,7 +165,7 @@ func (c *cfs) GetVolumeByID(ctx context.Context, volumeID string) (disk *Volume,
 }
 
 func FuseMount(ctx context.Context, volumeOptions *VolumeOptions, cr *common.Credentials) error {
-	klog.V(5).Infof("fuse client mount volume %s", volumeOptions.VolID)
+	klog.Infof("fuse client mount volume %s", volumeOptions.VolID)
 	if err := common.CreateDirIfNotExists(volumeOptions.VolPath); err != nil {
 		return err
 	}
