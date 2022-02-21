@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- csiplugin-configmap.yaml
+- fastcfs-client-configmap.yaml
 - clusterrole-attacher.yaml
 - clusterrole-csi-node.yaml
 - clusterrole-provisioner.yaml

@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"strconv"
@@ -39,26 +38,20 @@ import (
 //	  w:  write only
 //	  rw: read and write
 
-
 func newVolumeOptions(ctx context.Context, req *csi.CreateVolumeRequest, requestName string, cr *common.Credentials) (*fcfs.VolumeOptions, error) {
 	parameters := req.GetParameters()
-	clusterID := parameters["clusterID"]
-	if len(clusterID) == 0 {
-		return nil, errors.New("clusterID must be set")
+	basePath := parameters[common.FastCFSConfigBasePath]
+	if len(basePath) == 0 {
+		return nil, fmt.Errorf("the storage class parameter '%s' must be set", common.FastCFSConfigBasePath)
 	}
 
 	cid := &common.CSIIdentifier{
-		ClusterID: clusterID,
+		ClusterID: basePath,
 		UserName:  cr.UserName,
 		VolName:   common.CsiVolNamingPrefix + requestName,
 	}
 
 	csiid, err := cid.ComposeCSIID()
-	if err != nil {
-		return nil, err
-	}
-
-	url, err := common.ConfigURL(common.CsiConfigFile, clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +62,9 @@ func newVolumeOptions(ctx context.Context, req *csi.CreateVolumeRequest, request
 		VolName:       cid.VolName,
 		CapacityBytes: requiredBytes,
 		VolID:         csiid,
-		BaseConfigURL: url,
-		ClusterID:     clusterID,
+		BaseConfigURL: basePath,
 	}, nil
 }
-
 
 func NewVolOptionsFromVolID(volID string, cr *csi.CapacityRange) (*fcfs.VolumeOptions, error) {
 	cid := &common.CSIIdentifier{}
@@ -81,22 +72,16 @@ func NewVolOptionsFromVolID(volID string, cr *csi.CapacityRange) (*fcfs.VolumeOp
 		return nil, common.ErrInvalidVolID
 	}
 
-	url, err := common.ConfigURL(common.CsiConfigFile, cid.ClusterID)
-	if err != nil {
-		return nil, err
-	}
 	vol := &fcfs.VolumeOptions{
 		VolName:       cid.VolName,
 		VolID:         volID,
-		ClusterID:     cid.ClusterID,
-		BaseConfigURL: url,
+		BaseConfigURL: cid.BasePath(),
 	}
 	if cr != nil {
 		vol.CapacityBytes = cr.GetRequiredBytes()
 	}
 	return vol, nil
 }
-
 
 func NewVolOptionsFromStatic(volID string, options map[string]string) (*fcfs.VolumeOptions, error) {
 
@@ -117,21 +102,15 @@ func NewVolOptionsFromStatic(volID string, options map[string]string) (*fcfs.Vol
 		return nil, common.ErrNonStaticVolume
 	}
 
-	clusterID, ok := options["clusterID"]
-	if !ok {
-		return nil, errors.New("clusterID must be set")
-	}
-
-	url, err := common.ConfigURL(common.CsiConfigFile, clusterID)
-	if err != nil {
-		return nil, err
+	basePath := options[common.FastCFSConfigBasePath]
+	if len(basePath) == 0 {
+		return nil, fmt.Errorf("the storage class parameter '%s' must be set", common.FastCFSConfigBasePath)
 	}
 
 	vol := &fcfs.VolumeOptions{
 		VolName:        volID,
 		VolID:          volID,
-		ClusterID:      clusterID,
-		BaseConfigURL:  url,
+		BaseConfigURL:  basePath,
 		PreProvisioned: staticVol,
 	}
 

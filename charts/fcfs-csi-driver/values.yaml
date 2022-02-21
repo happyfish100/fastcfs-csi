@@ -171,7 +171,7 @@ pluginFcfsFusedProxySocketFile: fcfsfused-proxy.sock
 # Name of the csi-driver
 driverName: fcfs.csi.vazmin.github.io
 # Name of the configmap used for state
-configMapName: fcfs-csi-config
+configMapName: fastcfs-client-config
 # Key to use in the Configmap if not config.json
 # configMapKey:
 # Use an externally provided configmap

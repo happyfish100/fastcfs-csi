@@ -77,7 +77,7 @@ kind-load-image:
 kind-clean:
 	$(CONTAINER_CMD) exec kind-control-plane bash -c "crictl image | grep $(CSI_IMAGE_NAME) | grep $(CSI_IMAGE_VERSION) | awk '{print $$3}' | xargs -r crictl rmi"
 
-local-deploy: image-clean build image-csi kind-load-image
+local-deploy: image-clean image-csi kind-load-image
 
 node-restart:
 	kubectl get po | grep fcfs-csi-node |awk '{print $$1}'| xargs -i kubectl delete po {}
@@ -124,7 +124,7 @@ bin/helm: | /tmp/helm bin
 	@rm -rf /tmp/helm/*
 
 
-BASE_YAML = csiplugin-configmap.yaml
+BASE_YAML = fastcfs-client-configmap.yaml
 KUBE_YAML = csidriver.yaml controller.yaml node.yaml
 RBAC_YAML = clusterrole-attacher.yaml clusterrole-csi-node.yaml clusterrole-provisioner.yaml clusterrole-resizer.yaml \
 			clusterrolebinding-attacher.yaml clusterrolebinding-csi-node.yaml clusterrolebinding-provisioner.yaml clusterrolebinding-resizer.yaml \

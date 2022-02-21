@@ -32,10 +32,11 @@ const (
 )
 
 const (
-	PoolCMD              = "/usr/bin/fcfs_pool"
-	PoolConfigFile       = "/fastcfs/auth/client.conf"
-	FuseClientCMD        = "/usr/bin/fcfs_fused"
-	FuseClientConfigFile = "/fastcfs/fcfs/fuse.conf"
+	FastCFSConfigBasePath = "fastcfs-config-base-path"
+	PoolCMD               = "/usr/bin/fcfs_pool"
+	PoolConfigFile        = "/fastcfs/auth/client.conf"
+	FuseClientCMD         = "/usr/bin/fcfs_fused"
+	FuseClientConfigFile  = "/fastcfs/fcfs/fuse.conf"
 )
 
 const (
