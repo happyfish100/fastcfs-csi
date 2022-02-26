@@ -14,6 +14,7 @@ parameters:
   csi.storage.k8s.io/node-stage-secret-namespace: default
   csi.storage.k8s.io/node-publish-secret-name: csi-fcfs-secret
   csi.storage.k8s.io/node-publish-secret-namespace: default
+  # mount path or http link
   fastcfs-config-base-path: /etc/fastcfs-client-config
 ---
 apiVersion: v1

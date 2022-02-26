@@ -27,8 +27,7 @@ FastCFS 容器存储接口（CSI）驱动器为容器编排器（Container Orche
 | FastCFS CSI Driver \ Kubernetes Version| v1.17 | v1.18+ |
 |----------------------------------------|-------|-------|
 | master branch                          | ?     | yes   |
-| v0.2.0                                 | ?     | yes   |
-| v0.1.0                                 | ?     | yes   |
+| v0.4.0                                 | ?     | yes   |
 
 
 ### 2.2. 先决条件
@@ -65,23 +64,12 @@ kubectl apply -f secret.yaml
 
 在部署驱动程序之前，请参阅上面的兼容性矩阵
 
+##### 2.3.3.1. 部署
+
+使用 kustomization 文件部署
 ```sh
 kubectl apply -k "github.com/happyfish100/fastcfs-csi/deploy/kubernetes/overlays/dev/?ref=main"
 ```
-
-修改ConfigMap, 并替换它。[ConfigMap 例子](./examples/kubernetes/config-map/README.md)
-
-```sh
-curl https://raw.githubusercontent.com/happyfish100/fastcfs-csi/master/deploy/kubernetes/base/csiplugin-configmap.yaml > csiplugin-configmap.yaml
-kubectl replace -f csiplugin-configmap.yaml
-```
-
-验证驱动程序正在运行:
-
-```sh
-kubectl get pods
-```
-
 
 或者，您也可以使用 helm 安装驱动程序：
 
@@ -96,6 +84,18 @@ helm repo update
 helm upgrade --install fastcfs-csi fastcfs-csi/fcfs-csi-driver
 ```
 
+##### 2.3.3.2. 修改 FastCFS Config
+更新FastCFS Config, 修改host(`data.fdir-cluster.host`,`data.fstore-cluster.host`,`data.auth-cluster.host`)或更多配置。
+更多请查看[FastCFS Config 示例](./examples/kubernetes/fastcfs-config/README.md)
+```sh
+kubectl edit configmap fastcfs-client-config
+```
+
+#### 2.3.3.3 验证驱动程序正在运行
+
+```sh
+kubectl get pods
+```
 
 #### 2.3.4. 使用调试模式部署驱动程序
 
@@ -105,7 +105,7 @@ helm upgrade --install fastcfs-csi fastcfs-csi/fcfs-csi-driver
 
 确保在示例之前遵循 [先决条件](README-zh_CN.md#先决条件) :
 
-* [Config Map](./examples/kubernetes/config-map)
+* [FastCFS Config](./examples/kubernetes/fastcfs-config)
 * [动态供应](./examples/kubernetes/dynamic-provisioning)
 * [静态供应](./examples/kubernetes/static-provisioning)
 * [配置存储类](./examples/kubernetes/storageclass)
