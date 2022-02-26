@@ -20,7 +20,7 @@ spec:
       namespace: default
     volumeAttributes:
       # Required options from storage class parameters need to be added in volumeAttributes
-      "clusterID": "virtual-cluster-id-1"
+      "fastcfs-config-base-path": "/etc/fastcfs-client-config"
       "static": "true"
   persistentVolumeReclaimPolicy: Retain
 ---

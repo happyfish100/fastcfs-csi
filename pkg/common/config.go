@@ -16,14 +16,7 @@ limitations under the License.
 
 package common
 
-import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-)
-
 const (
-	CsiConfigFile  = "/etc/fcfs-csi-config/config.json"
 	ClientBasePath = "/opt/fastcfs"
 	PidSuffixPath  = "fused.pid"
 )
@@ -43,46 +36,4 @@ type Config struct {
 	FcfsFusedProxyEndpoint   string
 	EnableFcfsFusedProxy     bool
 	FcfsFusedProxyConnTimout int
-}
-
-type ClusterInfo struct {
-	ClusterID string `json:"clusterID"`
-	ConfigURL string `json:"configURL"`
-}
-
-func readClusterInfo(pathToConfig, clusterID string) (*ClusterInfo, error) {
-	var config []ClusterInfo
-
-	// #nosec
-	content, err := ioutil.ReadFile(pathToConfig)
-	if err != nil {
-		err = fmt.Errorf("error fetching configuration for cluster ID %q: %w", clusterID, err)
-		return nil, err
-	}
-
-	err = json.Unmarshal(content, &config)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal failed (%w), raw buffer response: %s",
-			err, string(content))
-	}
-
-	for _, cluster := range config {
-		if cluster.ClusterID == clusterID {
-			return &cluster, nil
-		}
-	}
-
-	return nil, fmt.Errorf("missing configuration for cluster ID %q", clusterID)
-}
-
-func ConfigURL(pathToConfig, clusterID string) (string, error) {
-	cluster, err := readClusterInfo(pathToConfig, clusterID)
-	if err != nil {
-		return "", err
-	}
-
-	if len(cluster.ConfigURL) == 0 {
-		return "", fmt.Errorf("empty config file for cluster ID (%s) in config", clusterID)
-	}
-	return cluster.ConfigURL, nil
 }

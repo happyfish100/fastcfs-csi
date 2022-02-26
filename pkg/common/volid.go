@@ -38,6 +38,10 @@ type CSIIdentifierDecompose struct {
 	cursor        uint16
 }
 
+func (cid *CSIIdentifier) BasePath() string {
+	return cid.ClusterID
+}
+
 func (cid *CSIIdentifier) Len() int {
 	return 5*3 + len(cid.ClusterID) + len(cid.UserName) + len(cid.VolName)
 }

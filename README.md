@@ -26,8 +26,7 @@ Following sections are Kubernetes specific. If you are Kubernetes user, use foll
 | FastCFS CSI Driver \ Kubernetes Version| v1.17 | v1.18+ |
 |----------------------------------------|-------|-------|
 | master branch                          | ?     | yes   |
-| v0.2.0                                 | ?     | yes   |
-| v0.1.0                                 | ?     | yes   |
+| v0.4.0                                 | ?     | yes   |
 
 ## Prerequisites
 * [FastCFS](https://github.com/happyfish100/FastCFS/) `v2.2.0 ` or later
@@ -59,19 +58,12 @@ By default, driver tolerates taint `CriticalAddonsOnly` and has `tolerationSecon
 #### Deploy driver
 Please see the compatibility matrix above before you deploy the driver
 
+##### deploy
+
+Deploy using kustomization file
+
 ```sh
 kubectl apply -k "github.com/happyfish100/fastcfs-csi/deploy/kubernetes/overlays/dev/?ref=main"
-```
-
-Edit the configmap and replace the cluster config. [ConfigMap example](./examples/kubernetes/config-map/README.md)
-```sh
-curl https://raw.githubusercontent.com/happyfish100/fastcfs-csi/master/deploy/kubernetes/base/csiplugin-configmap.yaml > csiplugin-configmap.yaml
-kubectl replace -f csiplugin-configmap.yaml
-```
-
-Verify driver is running:
-```sh
-kubectl get pods
 ```
 
 Alternatively, you could also install the driver using helm:
@@ -87,13 +79,26 @@ Then install a release of the driver using the chart
 helm upgrade --install fastcfs-csi fastcfs-csi/fcfs-csi-driver
 ```
 
+##### edit FastCFS Config
+Update FastCFS Config, modify host(`data.fdir-cluster.host`, `data.fstore-cluster.host`, `data.auth-cluster.host`) or more configuration.
+For more, see [FastCFS Config Example](./examples/kubernetes/fastcfs-config/README.md)
+
+```sh
+kubectl edit configmap fastcfs-client-config
+```
+
+#### Verify driver is running:
+```sh
+kubectl get pods
+```
+
 
 #### Deploy driver with debug mode
 To view driver debug logs, run the CSI driver with `-v=5` command line option
 
 ## Examples
 Make sure you follow the [Prerequisites](README.md#Prerequisites) before the examples:
-* [Config Map](./examples/kubernetes/config-map)
+* [FastCFS Config](./examples/kubernetes/fastcfs-config)
 * [Dynamic Provisioning](./examples/kubernetes/dynamic-provisioning)
 * [Static Provisioning](./examples/kubernetes/static-provisioning)
 * [Configure StorageClass](./examples/kubernetes/storageclass)

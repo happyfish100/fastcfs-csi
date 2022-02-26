@@ -15,7 +15,7 @@ FASTCFS_VERSION=3.1.0
 FASTCFS_NAME=vazmin/fastcfs-fused
 FASTCFS_IMAGE=$(FASTCFS_NAME):v$(FASTCFS_VERSION)
 
-CSI_IMAGE_VERSION=v0.3.0
+CSI_IMAGE_VERSION=v0.4.0
 CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),vazmin/fcfs-csi)
 CSI_IMAGE=$(CSI_IMAGE_NAME):$(CSI_IMAGE_VERSION)
 
@@ -77,7 +77,19 @@ kind-load-image:
 kind-clean:
 	$(CONTAINER_CMD) exec kind-control-plane bash -c "crictl image | grep $(CSI_IMAGE_NAME) | grep $(CSI_IMAGE_VERSION) | awk '{print $$3}' | xargs -r crictl rmi"
 
-local-deploy: image-clean build image-csi kind-load-image
+local-deploy: image-clean image-csi kind-load-image
+
+node-restart:
+	kubectl get po | grep fcfs-csi-node |awk '{print $$1}'| xargs -i kubectl delete po {}
+
+node-log:
+	kubectl get po | grep fcfs-csi-node | awk '{print $$1}'| xargs -i kubectl logs {} fcfs-plugin -f
+
+controller-restart:
+	kubectl get po | grep fcfs-csi-controller |awk '{print $$1}'| xargs -i kubectl delete po {}
+
+controller-log:
+	kubectl get po | grep fcfs-csi-controller |awk '{print $$1}'| xargs -i kubectl logs {} fcfs-plugin -f
 
 .PHONY: image-fastcfs
 image-fastcfs: .container-cmd
@@ -112,7 +124,7 @@ bin/helm: | /tmp/helm bin
 	@rm -rf /tmp/helm/*
 
 
-BASE_YAML = csiplugin-configmap.yaml
+BASE_YAML = fastcfs-client-configmap.yaml
 KUBE_YAML = csidriver.yaml controller.yaml node.yaml
 RBAC_YAML = clusterrole-attacher.yaml clusterrole-csi-node.yaml clusterrole-provisioner.yaml clusterrole-resizer.yaml \
 			clusterrolebinding-attacher.yaml clusterrolebinding-csi-node.yaml clusterrolebinding-provisioner.yaml clusterrolebinding-resizer.yaml \

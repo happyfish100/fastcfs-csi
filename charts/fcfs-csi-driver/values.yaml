@@ -8,7 +8,7 @@ image:
   repository: vazmin/fcfs-csi
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v0.3.0"
+  tag: "v0.4.0"
 
 sidecars:
   provisionerImage:
@@ -171,7 +171,7 @@ pluginFcfsFusedProxySocketFile: fcfsfused-proxy.sock
 # Name of the csi-driver
 driverName: fcfs.csi.vazmin.github.io
 # Name of the configmap used for state
-configMapName: fcfs-csi-config
+configMapName: fastcfs-client-config
 # Key to use in the Configmap if not config.json
 # configMapKey:
 # Use an externally provided configmap

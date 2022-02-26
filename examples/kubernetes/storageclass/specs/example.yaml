@@ -14,7 +14,9 @@ parameters:
   csi.storage.k8s.io/node-stage-secret-namespace: default
   csi.storage.k8s.io/node-publish-secret-name: csi-fcfs-secret
   csi.storage.k8s.io/node-publish-secret-namespace: default
-  clusterID: virtual-cluster-id-1
+
+  # mount path or http link
+  fastcfs-config-base-path: /etc/fastcfs-client-config
 #  domainLabels: "topology.fcfs.csi.vazmin.github.io/hostname"
 #allowedTopologies:
 #- matchLabelExpressions:

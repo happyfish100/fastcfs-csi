@@ -82,8 +82,8 @@ spec:
               name: plugins-dir
             - mountPath: /dev
               name: dev-dir
-            - mountPath: /etc/fcfs-csi-config/
-              name: fcfs-csi-config
+            - mountPath: /etc/fastcfs-client-config
+              name: fcfs-config
             - mountPath: /tmp/csi/keys
               name: keys-tmp-dir
           ports:
@@ -221,9 +221,22 @@ spec:
             path: /dev
             type: Directory
           name: dev-dir
-        - name: fcfs-csi-config
+        - name: fcfs-config
           configMap:
             name: {{ .Values.configMapName }}
+            items:
+              - key: fdir-cluster
+                path: fastcfs/fdir/cluster.conf
+              - key: fstore-cluster
+                path: fastcfs/fstore/cluster.conf
+              - key: auth-cluster
+                path: fastcfs/auth/cluster.conf
+              - key: auth-config
+                path: fastcfs/auth/auth.conf
+              - key: auth-client
+                path: fastcfs/auth/client.conf
+              - key: fuse-config
+                path: fastcfs/fcfs/fuse.conf
         - name: keys-tmp-dir
           emptyDir: {
             medium: "Memory"
