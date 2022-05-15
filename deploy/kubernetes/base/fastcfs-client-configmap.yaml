@@ -12,7 +12,6 @@ data:
     # config the auth config filename
     auth_config_filename = ../auth/auth.conf
 
-
     [group-cluster]
     # the default cluster port
     port = 11011
