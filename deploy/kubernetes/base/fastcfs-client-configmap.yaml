@@ -148,7 +148,6 @@ data:
     # thread stack size, should >= 320KB
     thread_stack_size = 512KB
 
-
     [FastDIR]
 
     # config the cluster servers

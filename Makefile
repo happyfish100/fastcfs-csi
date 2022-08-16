@@ -11,11 +11,11 @@ all: build
 BIN_OUTPUT=bin
 
 
-FASTCFS_VERSION=3.3.0
+FASTCFS_VERSION=3.5.0
 FASTCFS_NAME=vazmin/fastcfs-fused
 FASTCFS_IMAGE=$(FASTCFS_NAME):v$(FASTCFS_VERSION)
 
-CSI_IMAGE_VERSION=v0.4.1
+CSI_IMAGE_VERSION=v0.4.2
 CSI_IMAGE_NAME=$(if $(ENV_CSI_IMAGE_NAME),$(ENV_CSI_IMAGE_NAME),vazmin/fcfs-csi)
 CSI_IMAGE=$(CSI_IMAGE_NAME):$(CSI_IMAGE_VERSION)
 
@@ -93,7 +93,7 @@ controller-log:
 
 .PHONY: image-fastcfs
 image-fastcfs: .container-cmd
-	$(CONTAINER_CMD) build --build-arg FASTCFS_VERSION=FastCFS-fused-$(FASTCFS_VERSION)-1.el8.x86_64 -t $(FASTCFS_IMAGE) -f deploy/fastcfs-fused/Dockerfile .
+	$(CONTAINER_CMD) build --build-arg FASTCFS_VERSION=FastCFS-fused-$(FASTCFS_VERSION)-2.el8.x86_64 -t $(FASTCFS_IMAGE) -f deploy/fastcfs-fused/Dockerfile .
 
 .PHONY: fcfsfused-proxy
 fcfsfused-proxy:
