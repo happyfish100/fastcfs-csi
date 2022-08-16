@@ -22,6 +22,12 @@ Status: **beta**
 # FastCFS CSI Driver on Kubernetes
 Following sections are Kubernetes specific. If you are Kubernetes user, use followings for driver features, installation steps and examples.
 
+## FastCFS Version Compatibility Matrix
+| FastCFS CSI Driver       | FastCFS Version|
+|--------------------------|----------------|
+| v0.4.2                   | v3.5.0         |
+| v0.4.0                   | v3.3.0         |
+
 ## Kubernetes Version Compatibility Matrix
 | FastCFS CSI Driver \ Kubernetes Version| v1.17 | v1.18+ |
 |----------------------------------------|-------|-------|

@@ -23,7 +23,13 @@ FastCFS 容器存储接口（CSI）驱动器为容器编排器（Container Orche
 
 以下部分是特定于 Kubernetes 的。如果您是 Kubernetes 用户，请使用以下驱动程序功能、安装步骤和示例。
 
-### 2.1. Kubernetes 版本兼容性矩阵
+### 2.1. FastCFS 版本兼容性矩阵
+| FastCFS CSI Driver       | FastCFS Version|
+|--------------------------|----------------|
+| v0.4.2                   | v3.5.0         |
+| v0.4.0                   | v3.3.0         |
+
+### 2.2. Kubernetes 版本兼容性矩阵
 | FastCFS CSI Driver \ Kubernetes Version| v1.17 | v1.18+ |
 |----------------------------------------|-------|-------|
 | master branch                          | ?     | yes   |
