@@ -26,6 +26,7 @@ FastCFS 容器存储接口（CSI）驱动器为容器编排器（Container Orche
 ### 2.1. FastCFS 版本兼容性矩阵
 | FastCFS CSI Driver       | FastCFS Version|
 |--------------------------|----------------|
+| v0.4.3                   | v3.6.0         |
 | v0.4.2                   | v3.5.0         |
 | v0.4.0                   | v3.3.0         |
 
