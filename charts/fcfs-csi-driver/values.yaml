@@ -8,7 +8,7 @@ image:
   repository: vazmin/fcfs-csi
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v0.4.6-1fastcfs4.0.0"
+  tag: "v0.4.6-3fastcfs4.0.0"
 
 sidecars:
   provisionerImage:
