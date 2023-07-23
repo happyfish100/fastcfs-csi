@@ -31,7 +31,7 @@ data:
     # host can be an IP address or a hostname
     # IP address is recommended
     # can occur more than once
-    host = 192.168.99.150
+    host = 192.168.99.181
   fstore-cluster: |
     #
     # the server group is a physical concept, the data under the same server group
@@ -105,7 +105,7 @@ data:
     # host can be an IP address or a hostname
     # IP address is recommended
     # can occur more than once
-    host = 192.168.99.150
+    host = 192.168.99.181
   auth-cluster: |
 
     [group-cluster]
@@ -127,7 +127,7 @@ data:
     # host can be an IP address or a hostname
     # IP address is recommended
     # can occur more than once
-    host = 192.168.99.150
+    host = 192.168.99.181
   auth-config: |
     # enable / disable authentication
     # default value is false
