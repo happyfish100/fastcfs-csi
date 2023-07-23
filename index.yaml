@@ -2,6 +2,25 @@ apiVersion: v1
 entries:
   fcfs-csi-driver:
   - apiVersion: v2
+    appVersion: 0.4.6-fastcfs4.2.0-1
+    created: "2023-07-23T14:48:22.191163402Z"
+    description: A Helm chart for FastCFS CSI Driver
+    digest: 559d542ae90e5edf70cecedd75e749a32c5a44b747532147d918358c34bc668d
+    home: https://github.com/happyfish100/fastcfs-csi
+    keywords:
+    - csi
+    - fastcfs
+    maintainers:
+    - email: chwingwong@outlook.com
+      name: vazmin
+    name: fcfs-csi-driver
+    sources:
+    - https://github.com/happyfish100/fastcfs-csi
+    type: application
+    urls:
+    - https://github.com/happyfish100/fastcfs-csi/releases/download/helm-chart-fcfs-csi-driver-0.4.6-fastcfs4.2.0-1/fcfs-csi-driver-0.4.6-fastcfs4.2.0-1.tgz
+    version: 0.4.6-fastcfs4.2.0-1
+  - apiVersion: v2
     appVersion: 0.4.6-3fastcfs4.0.0
     created: "2023-06-08T14:06:28.742468032Z"
     description: A Helm chart for FastCFS CSI Driver
@@ -267,4 +286,4 @@ entries:
     urls:
     - https://github.com/happyfish100/fastcfs-csi/releases/download/helm-chart-fcfs-csi-driver-0.1.0/fcfs-csi-driver-0.1.0.tgz
     version: 0.1.0
-generated: "2023-06-26T18:24:11.979275372Z"
+generated: "2023-07-23T14:48:22.191687609Z"
