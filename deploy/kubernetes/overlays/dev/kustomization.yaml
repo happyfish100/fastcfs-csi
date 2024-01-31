@@ -4,4 +4,4 @@ bases:
   - ../../base
 images:
   - name: vazmin/fcfs-csi
-    newTag: v0.4.6-fastcfs5.1.0-1
+    newTag: v0.4.6-fastcfs5.2.0-1

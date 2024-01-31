@@ -25,7 +25,7 @@ spec:
       priorityClassName: system-cluster-critical
       containers:
         - name: fcfs-plugin
-          image: vazmin/fcfs-csi:v0.4.6-fastcfs5.1.0-1
+          image: vazmin/fcfs-csi:v0.4.6-fastcfs5.2.0-1
           imagePullPolicy: IfNotPresent
           args:
             - --controller-server=true
