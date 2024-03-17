@@ -25,6 +25,7 @@ Following sections are Kubernetes specific. If you are Kubernetes user, use foll
 ## FastCFS Version Compatibility Matrix
 | FastCFS CSI Driver       | FastCFS Version|
 |--------------------------|----------------|
+| v0.4.6-fastcfs5.3.0-1    | v5.3.0         | 
 | v0.4.6-fastcfs5.2.0-1    | v5.2.0         | 
 | v0.4.6-fastcfs5.1.0-1    | v5.1.0         | 
 | v0.4.6-fastcfs5.0.0-1    | v5.0.0         | 

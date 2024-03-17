@@ -35,7 +35,7 @@ spec:
             privileged: true
             capabilities:
               add: [ "SYS_ADMIN" ]
-          image: vazmin/fcfs-csi:v0.4.6-fastcfs5.2.0-1
+          image: vazmin/fcfs-csi:v0.4.6-fastcfs5.3.0-1
           args:
             - --node-server=true
             - --endpoint=$(CSI_ENDPOINT)
